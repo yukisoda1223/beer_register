@@ -1,58 +1,67 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { deleteDrink, errorMessage } from "@/lib/drinks-db";
+import type { Kind } from "@/lib/kinds";
+import { createClient } from "@/lib/supabase/client";
 
-// 「削除」ボタン。押すと確認ダイアログを出し、「削除する」を押したときだけ消す
-export function DeleteButton({ name, listHref }: { name: string; listHref: string }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+// 「削除」ボタン。押すと確認ダイアログを出し、「削除する」を押したときだけ記録と写真を消す
+export function DeleteButton({
+  kind,
+  id,
+  name,
+  imagePath,
+}: {
+  kind: Kind;
+  id: string;
+  name: string;
+  imagePath: string | null;
+}) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleDelete() {
-    // TODO(M3): データベースから記録と写真を消す。いまはサンプルなので一覧へ戻るだけ
-    dialogRef.current?.close();
-    router.push(listHref);
+  async function handleDelete() {
+    setOpen(false);
+    setDeleting(true);
+    try {
+      await deleteDrink(createClient(), id, imagePath);
+      router.push(`/${kind}/list?done=deleted`);
+      router.refresh();
+    } catch {
+      setError(errorMessage("削除できませんでした。もう一度お試しください。"));
+      setDeleting(false);
+    }
   }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => dialogRef.current?.showModal()}
-        className="min-h-11 flex-1 rounded-xl border-2 border-red-700 bg-(--color-surface) font-bold text-red-700"
+        disabled={deleting}
+        onClick={() => setOpen(true)}
+        className="min-h-11 flex-1 rounded-xl border-2 border-red-700 bg-(--color-surface) font-bold text-red-700 disabled:opacity-60"
       >
-        削除
+        {deleting ? "削除しています…" : "削除"}
       </button>
-
-      <dialog
-        ref={dialogRef}
-        aria-labelledby="delete-title"
-        className="m-auto w-[min(90vw,360px)] rounded-xl bg-(--color-surface) p-5 text-(--color-text) shadow-xl backdrop:bg-black/40"
-      >
-        <h2 id="delete-title" className="text-lg font-bold">
-          この記録を削除しますか?
-        </h2>
-        <p className="mt-2 text-(--color-text-sub)">
-          「{name}」を削除します。写真も一緒に消え、元に戻せません。
+      {error && (
+        <p role="alert" className="text-[13px] text-red-700">
+          {error}
         </p>
-        <div className="mt-5 flex gap-3">
-          <button
-            type="button"
-            autoFocus
-            onClick={() => dialogRef.current?.close()}
-            className="min-h-11 flex-1 rounded-xl border border-(--color-border) font-bold"
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="min-h-11 flex-1 rounded-xl bg-red-700 font-bold text-white"
-          >
-            削除する
-          </button>
-        </div>
-      </dialog>
+      )}
+      <ConfirmDialog
+        open={open}
+        title="この記録を削除しますか?"
+        message={`「${name}」を削除します。写真も一緒に消え、元に戻せません。`}
+        onClose={() => setOpen(false)}
+        actions={[
+          { label: "削除する", variant: "danger", onClick: handleDelete },
+          { label: "キャンセル", onClick: () => setOpen(false) },
+        ]}
+      />
     </>
   );
 }

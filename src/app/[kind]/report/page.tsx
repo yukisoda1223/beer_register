@@ -1,5 +1,4 @@
 import { Card } from "@/components/Card";
-import Link from "next/link";
 import { AccountFooter } from "@/components/AccountFooter";
 import { DrinkIcon } from "@/components/DrinkIcon";
 import { SampleNotice } from "@/components/SampleNotice";
@@ -17,7 +16,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
 
   return (
     <div className="flex flex-col gap-4">
-      <SampleNotice>いまはサンプル表示です。記録ができるようになると本物の集計に変わります。</SampleNotice>
+      <SampleNotice>レポートはまだサンプル表示です。マイルストーン7で本物の集計に変わります。</SampleNotice>
 
       <Card title="Your Summary">
         <p className="leading-relaxed">{SAMPLE_SUMMARY[kind]}</p>
@@ -37,7 +36,8 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         <ol className="flex flex-col divide-y divide-(--color-border)">
           {top5.map((d, i) => (
             <li key={d.id}>
-              <Link href={`/${kind}/${d.id}`} className="flex min-h-14 items-center gap-3 py-2">
+              {/* サンプルなのでリンクにしない(M7 で本物の記録の詳細へつなぐ) */}
+              <div className="flex min-h-14 items-center gap-3 py-2">
                 <span className="w-5 text-center text-lg font-bold text-(--color-accent-text)">{i + 1}</span>
                 <DrinkIcon type={iconTypeOf(d)} size={40} />
                 <div className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
                   <p className="text-[13px] text-(--color-text-sub)">{d.category}</p>
                 </div>
                 <StarDisplay value={d.rating ?? 0} size={14} />
-              </Link>
+              </div>
             </li>
           ))}
         </ol>

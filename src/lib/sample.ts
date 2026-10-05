@@ -1,5 +1,5 @@
 // 見た目確認用のダミーデータ(銘柄・醸造所はすべて架空)。
-// データベースができたら(M3)使わなくなるので消してよい。
+// いまはレポート画面だけで使う。レポートの集計を作ったら(M7)消してよい。
 import type { Drink } from "@/lib/drink";
 import type { Kind } from "@/lib/kinds";
 
@@ -26,6 +26,12 @@ const EMPTY = {
   sweet_dry: null,
   light_rich: null,
   serving_temp: null,
+  lat: null,
+  lng: null,
+  ai_filled_fields: [] as string[],
+  sources: [] as { title: string; url: string }[],
+  created_at: "2026-10-01T00:00:00Z",
+  updated_at: "2026-10-01T00:00:00Z",
 } as const;
 
 const beer = (d: Partial<Drink> & Pick<Drink, "id" | "drunk_on" | "name">): Drink => ({ ...EMPTY, kind: "beer", ...d });
@@ -47,10 +53,6 @@ export const SAMPLE_DRINKS: Record<Kind, Drink[]> = {
     sake({ id: "s4", drunk_on: "2026-08-03", name: "里山 本醸造", category: "本醸造", rating: 3, aroma: 2.5, maker: "里山酒造", prefecture: "兵庫県", sweet_dry: 3, light_rich: 4, serving_temp: "hot" }),
   ],
 };
-
-export function findSampleDrink(kind: Kind, id: string): Drink | undefined {
-  return SAMPLE_DRINKS[kind].find((d) => d.id === id);
-}
 
 export const SAMPLE_SUMMARY: Record<Kind, string> = {
   beer: "エール系が6割で、特にIPAの評価が高めです。夏はラガーが多くなる傾向です。",

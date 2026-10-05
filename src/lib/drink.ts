@@ -33,6 +33,13 @@ export type Drink = {
   sweet_dry: number | null;
   light_rich: number | null;
   serving_temp: ServingTemp | null;
+  // 地図・AI関連
+  lat: number | null;
+  lng: number | null;
+  ai_filled_fields: string[];
+  sources: { title: string; url: string }[];
+  created_at: string;
+  updated_at: string;
 };
 
 export const SERVING_TEMP_LABELS: Record<ServingTemp, string> = {

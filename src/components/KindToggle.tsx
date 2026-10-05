@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useLeaveGuard } from "@/components/UnsavedChanges";
 import { KINDS, KIND_LABELS, switchKindInPath, type Kind } from "@/lib/kinds";
 
 // 「ビール | 日本酒」の切替ボタン。切り替えても同じ種類の画面に移る。
-// TODO(M3): 記録の入力中に切り替えるときは「下書きに保存しますか?」と確認する
+// 記録の入力中に切り替えるときは「下書きに保存しますか?」と確認する
 export function KindToggle({ kind }: { kind: Kind }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { requestLeave } = useLeaveGuard();
 
   return (
     <nav
@@ -16,10 +19,16 @@ export function KindToggle({ kind }: { kind: Kind }) {
     >
       {KINDS.map((k) => {
         const active = k === kind;
+        const href = switchKindInPath(pathname, k);
         return (
           <Link
             key={k}
-            href={switchKindInPath(pathname, k)}
+            href={href}
+            onClick={(e) => {
+              if (active) return e.preventDefault();
+              e.preventDefault();
+              requestLeave(() => router.push(href));
+            }}
             aria-current={active ? "page" : undefined}
             className={`flex min-h-11 min-w-24 items-center justify-center rounded-full px-5 text-base font-bold transition-colors ${
               active

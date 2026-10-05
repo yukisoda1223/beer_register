@@ -1,29 +1,25 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Card } from "@/components/Card";
 import { DeleteButton } from "@/components/DeleteButton";
-import { DrinkIcon } from "@/components/DrinkIcon";
-import { SampleNotice } from "@/components/SampleNotice";
+import { DrinkImage } from "@/components/DrinkImage";
 import { StarDisplay } from "@/components/StarDisplay";
 import { SERVING_TEMP_LABELS, formatDateLong, iconTypeOf, originLabel, type Drink } from "@/lib/drink";
-import { isKind } from "@/lib/kinds";
-import { findSampleDrink } from "@/lib/sample";
+import { loadDrinkOr404 } from "@/lib/drinks-server";
 
 // 記録の詳細(見るだけ)。一番下の「編集」「削除」から変更できる
 export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id]">) {
-  const { kind, id } = await params;
-  if (!isKind(kind)) notFound();
-  const drink = findSampleDrink(kind, id);
-  if (!drink) notFound();
+  const { kind: kindParam, id } = await params;
+  const { drink, imageUrl } = await loadDrinkOr404(kindParam, id);
+  const kind = drink.kind;
 
   return (
     <div className="flex flex-col gap-4">
-      <SampleNotice>サンプルの記録です。編集・削除はマイルストーン3で実際に動くようになります。</SampleNotice>
+      {drink.status === "draft" && (
+        <p className="rounded-lg bg-(--color-surface) px-3 py-2 text-[13px] text-(--color-text-sub)">この記録は下書きです。</p>
+      )}
 
       <div className="flex items-center gap-4">
-        <div className="shrink-0 overflow-hidden rounded-full">
-          <DrinkIcon type={iconTypeOf(drink)} size={88} />
-        </div>
+        <DrinkImage url={imageUrl} icon={iconTypeOf(drink)} size={88} rounded="rounded-full" alt={drink.name} />
         <div className="min-w-0">
           <h1 className="text-xl font-bold leading-snug">{drink.name}</h1>
           {drink.category && <p className="mt-1 text-(--color-text-sub)">{drink.category}</p>}
@@ -57,6 +53,21 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
         </dl>
       </Card>
 
+      {drink.sources.length > 0 && (
+        <details className="rounded-xl bg-(--color-surface) p-4 text-[13px]">
+          <summary className="cursor-pointer font-bold">参考にしたページ</summary>
+          <ul className="mt-2 flex flex-col gap-1">
+            {drink.sources.map((s) => (
+              <li key={s.url}>
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-(--color-accent-text) underline">
+                  {s.title || s.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {drink.comment && (
         <Card title="コメント">
           <p className="whitespace-pre-wrap leading-relaxed">{drink.comment}</p>
@@ -70,7 +81,7 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
         >
           編集
         </Link>
-        <DeleteButton name={drink.name} listHref={`/${kind}/list`} />
+        <DeleteButton kind={kind} id={drink.id} name={drink.name} imagePath={drink.image_path} />
       </div>
     </div>
   );

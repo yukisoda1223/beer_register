@@ -1,11 +1,9 @@
-import { SampleNotice } from "@/components/SampleNotice";
+import { DrinkForm } from "@/components/DrinkForm";
+import { loadDrinkOr404 } from "@/lib/drinks-server";
 
-// 記録の編集。フォームはマイルストーン3で作る(新規と同じフォームを使う)
-export default function EditDrinkPage() {
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">記録を編集</h1>
-      <SampleNotice>編集フォームはマイルストーン3で作ります。左上の矢印で戻れます。</SampleNotice>
-    </div>
-  );
+// 記録(編集)。新規と同じフォーム
+export default async function EditDrinkPage({ params }: PageProps<"/[kind]/[id]/edit">) {
+  const { kind, id } = await params;
+  const { drink, imageUrl } = await loadDrinkOr404(kind, id);
+  return <DrinkForm kind={drink.kind} drink={drink} imageUrl={imageUrl} />;
 }
