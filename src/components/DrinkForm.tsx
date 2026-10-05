@@ -1,12 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ImagePicker } from "@/components/ImagePicker";
+import { ResearchButton } from "@/components/ResearchButton";
 import { Slider5 } from "@/components/Slider5";
 import { StarRating } from "@/components/StarRating";
 import { useRegisterLeaveGuard } from "@/components/UnsavedChanges";
+import { applyCandidate } from "@/lib/ai/apply-research";
+import type { ResearchCandidate } from "@/lib/ai/research-schema";
 import { iconTypeOf, type Drink } from "@/lib/drink";
 import {
   drinkPayload,
@@ -31,6 +34,9 @@ import {
 } from "@/lib/masters";
 import { createClient } from "@/lib/supabase/client";
 
+// AIが埋めた項目の一覧(各入力欄の「AI」バッジ用)
+const AiFilledContext = createContext<string[]>([]);
+
 type ImageState =
   | { type: "keep" }
   | { type: "new"; blob: Blob; previewUrl: string }
@@ -54,10 +60,16 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   const [message, setMessage] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newId] = useState(() => crypto.randomUUID());
+  // AIが埋めた項目(「AI」バッジを出す)と、AIが参考にしたページ
+  const [aiFilled, setAiFilled] = useState<string[]>(drink?.ai_filled_fields ?? []);
+  const [sources, setSources] = useState<Drink["sources"]>(drink?.sources ?? []);
 
   const id = drink?.id ?? newId;
   const isSavedRecord = drink?.status === "saved";
-  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues) || image.type !== "keep";
+  const dirty =
+    JSON.stringify(values) !== JSON.stringify(initialValues) ||
+    image.type !== "keep" ||
+    JSON.stringify(sources) !== JSON.stringify(drink?.sources ?? []);
 
   // 写真のプレビュー用URLは使い終わったら片付ける
   useEffect(() => {
@@ -68,6 +80,21 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   function set<K extends DrinkFormField>(field: K, value: DrinkFormValues[K]) {
     setValues((v) => ({ ...v, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+    // ユーザーが書き換えたら「AI」バッジを外す
+    setAiFilled((f) => (f.includes(field) ? f.filter((x) => x !== field) : f));
+  }
+
+  function handleResearch(candidate: ResearchCandidate) {
+    const result = applyCandidate(kind, values, aiFilled, candidate);
+    setValues(result.values);
+    setAiFilled(result.aiFilled);
+    setErrors({});
+    if (candidate.sources.length > 0) {
+      setSources((prev) => {
+        const urls = new Set(prev.map((s) => s.url));
+        return [...prev, ...candidate.sources.filter((s) => !urls.has(s.url))];
+      });
+    }
   }
 
   async function handlePick(file: File) {
@@ -114,7 +141,12 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         imagePath = null;
       }
 
-      const payload = { ...drinkPayload(kind, values, status), image_path: imagePath };
+      const payload = {
+        ...drinkPayload(kind, values, status),
+        image_path: imagePath,
+        ai_filled_fields: aiFilled,
+        sources,
+      };
       const { error } = drink
         ? await supabase.from("drinks").update(payload).eq("id", id)
         : await supabase.from("drinks").insert({ id, ...payload });
@@ -163,6 +195,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   const makerLabel = kind === "beer" ? "醸造所" : "酒蔵";
 
   return (
+    <AiFilledContext.Provider value={aiFilled}>
     <form className="flex flex-col gap-5" onSubmit={(e) => (e.preventDefault(), persist("saved", true))} noValidate>
       <h1 className="sr-only">{drink ? "記録を編集" : "記録する"}</h1>
 
@@ -183,6 +216,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
             placeholder={kind === "beer" ? "例: ○○ペールエール" : "例: ○○ 純米吟醸"}
             className={inputClass(errors.name)}
           />
+          <ResearchButton kind={kind} name={values.name} onPick={handleResearch} onError={setMessage} />
         </Field>
       </div>
 
@@ -352,6 +386,21 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         />
       </Field>
 
+      {sources.length > 0 && (
+        <details className="rounded-xl bg-(--color-surface) p-4 text-[13px]">
+          <summary className="cursor-pointer font-bold">参考にしたページ({sources.length})</summary>
+          <ul className="mt-2 flex flex-col gap-1">
+            {sources.map((s) => (
+              <li key={s.url}>
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-(--color-accent-text) underline">
+                  {s.title || s.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {message && (
         <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
           {message}
@@ -401,6 +450,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         ]}
       />
     </form>
+    </AiFilledContext.Provider>
   );
 }
 
@@ -429,10 +479,20 @@ function Field({
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={`field-${field}`} className="text-[13px] font-bold text-(--color-text-sub)">
-        {label}
-        {required && <span className="ml-1 text-red-700">*</span>}
-      </label>
+      <div className="flex items-center justify-between">
+        <label htmlFor={`field-${field}`} className="text-[13px] font-bold text-(--color-text-sub)">
+          {label}
+          {required && <span className="ml-1 text-red-700">*</span>}
+        </label>
+        {useContext(AiFilledContext).includes(field) && (
+          <span
+            title="AIが入れた値です"
+            className="rounded-full bg-(--color-secondary) px-2 py-0.5 text-[11px] font-bold text-(--color-text)"
+          >
+            AI
+          </span>
+        )}
+      </div>
       {children}
       {hint && !error && <p className="text-[13px] text-(--color-text-sub)">{hint}</p>}
       {error && <p className="text-[13px] text-red-700">{error}</p>}

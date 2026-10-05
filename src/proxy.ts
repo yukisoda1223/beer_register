@@ -38,12 +38,17 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
 
+  // API は画面ではないので、ログイン画面へ移す代わりに 401 を返す
+  const isApi = pathname.startsWith("/api/");
+
   if (!claims) {
+    if (isApi) return NextResponse.json({ error: "ログインし直してください。" }, { status: 401 });
     return isPublic ? response : redirectTo(request, "/login", response);
   }
 
   if (!isAllowedEmail(claims.email)) {
     await supabase.auth.signOut();
+    if (isApi) return NextResponse.json({ error: "このアカウントは使えません。" }, { status: 403 });
     return redirectTo(request, "/login?error=not_allowed", response);
   }
 

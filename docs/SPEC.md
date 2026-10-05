@@ -426,6 +426,9 @@ cold=冷酒 / room=常温 / warm=ぬる燗 / hot=熱燗
 - Web検索は Claude API のサーバー側Web検索ツールを使う(ツール名・バージョンは docs.claude.com で確認)。1回の検索回数の上限を5程度に設定する。
 - 返り値は JSON で受け取り、zod で形を検証する。形が合わなければ1回だけやり直し、それでもだめならエラーを表示する。
 - タイムアウトは60秒。待っている間はボタンにくるくるを出し「調べています…」と表示。
+- (実装メモ)モデルは Claude Sonnet 5.5(`claude-sonnet-5-5`)。Web検索は `web_search_20260209`。
+  結果は strict な専用ツール `submit_research` で受け取り、zod で検証する。
+  安全のための判定で断られたときに備え、サーバー側フォールバック(`fallbacks: "default"`)を有効にしている。
 
 ### 8.2 名前からAIで自動入力 `POST /api/research`
 
