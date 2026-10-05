@@ -1,0 +1,48 @@
+/*
+ * テーマ色(仕様書 §4)
+ * <html data-theme="beer|sake"> または任意の要素の data-theme で切り替える。
+ * data-theme が無いときはビールの色になる。
+ */
+
+:root,
+[data-theme="beer"] {
+  --color-primary: #f28c28;
+  --color-secondary: #f6c343;
+  --color-bg: #fffbf3;
+  --color-surface: #ffffff;
+  --color-text: #2b2b2b;
+  --color-text-sub: #6b6b6b;
+  --color-on-primary: #2b2b2b;
+  /* 白背景の上で文字として使えるメイン色(コントラスト 4.5:1 以上) */
+  --color-accent-text: #a8520a;
+  /* 枠線・区切り線 */
+  --color-border: #efe4d2;
+
+  /* グラフ用: オレンジ〜黄〜茶 */
+  --chart-1: #f28c28;
+  --chart-2: #f6c343;
+  --chart-3: #b8641d;
+  --chart-4: #ffb067;
+  --chart-5: #7a4a1e;
+  --chart-6: #d9a441;
+}
+
+[data-theme="sake"] {
+  --color-primary: #1f2f55;
+  --color-secondary: #c9a54c;
+  --color-bg: #f5f1e8;
+  --color-surface: #ffffff;
+  --color-text: #1e2433;
+  --color-text-sub: #5d6475;
+  --color-on-primary: #ffffff;
+  --color-accent-text: #1f2f55;
+  --color-border: #e3ddd0;
+
+  /* グラフ用: 紺〜青〜金 */
+  --chart-1: #1f2f55;
+  --chart-2: #3d5a99;
+  --chart-3: #c9a54c;
+  --chart-4: #6f8fcf;
+  --chart-5: #8a6d2a;
+  --chart-6: #a9b8d9;
+}

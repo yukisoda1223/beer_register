@@ -1,0 +1,575 @@
+# beer_register 実装仕様書(Claude Code 向け)
+
+最終更新: 2026-10-05
+
+ビールと日本酒の飲み比べを記録する、個人用のスマホ向けWebアプリ。銘柄名だけ入れればAI(Claude API)が残りの項目を調べて埋め、レポート画面で好みの傾向・地図・グラフを見られる。
+
+---
+
+## 0. Claude Code への作業ルール
+
+- ユーザーはプログラミング初心者で、PCはWindows。セットアップ手順やコマンドは日本語で、Windows(PowerShell / コマンドプロンプト)向けに書くこと。
+- 仕様に書かれていないことや、解釈が分かれることは、実装前にユーザーに確認すること。
+- マイルストーン(§13)ごとに区切って作業し、各マイルストーンの終わりに「動作確認のしかた」をユーザーに伝えること。
+- コミットはマイルストーン単位を目安に、小さく分けて行う。リポジトリは `yukisoda1223/beer_register`(非公開)。
+- APIキーなどの秘密情報は `.env.local` にだけ置き、絶対にコミットしない。`.env.example` を用意する。
+- Claude API の仕様(モデル名、Web検索ツールの名前・バージョン、構造化出力の書き方)は変わることがあるので、実装時に https://docs.claude.com で最新の内容を確認してから書くこと。
+- UI の文言はすべて日本語。
+
+---
+
+## 1. 前提と決定事項
+
+| 項目 | 決定内容 |
+| --- | --- |
+| 形態 | スマホ向けWebアプリ(PWA)。ホーム画面に追加してアプリのように使う。PCブラウザでも動く |
+| 利用者 | 本人1人のみ。Googleログインし、許可した1つのメールアドレス以外は入れない |
+| データ保存 | クラウド(Supabase)。スマホとPCで同じデータを見る |
+| 生成AI | Claude API。サーバー側からだけ呼ぶ(APIキーをブラウザに出さない) |
+| お酒の種類 | ビール と 日本酒。画面上部の切替ボタンで切り替える |
+| 評価 | ★5段階、0.5刻み |
+| 地図のピン | 醸造所(酒蔵)の場所に立てる。飲んだ店の場所は記録しない |
+| 写真 | 最初の版から入れる。写真がないときはカテゴリに合うアイコンを自動表示 |
+| アプリ名 | 当面 `beer_register`(画面上の表示名は「のみくらべ帳」を仮置き。ユーザーに確認して確定) |
+| 既存データの取り込み | 最初の版では対象外 |
+
+---
+
+## 2. 技術構成
+
+| 役割 | 使うもの |
+| --- | --- |
+| フレームワーク | Next.js(App Router)+ TypeScript |
+| スタイル | Tailwind CSS(テーマ色は CSS 変数で切り替え) |
+| フォント | Noto Sans JP(`next/font/google`)。読み込めないときは端末のゴシック体 |
+| 認証・DB・画像保存 | Supabase(Auth: Google、Postgres、Storage) |
+| 地図 | Leaflet + react-leaflet + マーカーのクラスタ表示(leaflet.markercluster 系)、地図タイルは OpenStreetMap |
+| 住所→緯度経度 | OpenStreetMap Nominatim(利用規約に従い、1秒1回まで・User-Agent を付ける・結果を保存して使い回す) |
+| グラフ | Recharts |
+| AI | Anthropic 公式 SDK(`@anthropic-ai/sdk`)。Web検索ツールを使う |
+| 公開 | Vercel |
+| 画像の圧縮 | ブラウザ側で長辺1280px・WebP に縮小してからアップロード |
+
+構成のイメージ:
+
+```
+スマホ/PC ──▶ Next.js(Vercel)──▶ Supabase(ログイン・DB・画像)
+     │              └──────────▶ Claude API(リサーチ・レポート文)
+     │              └──────────▶ Nominatim(住所→緯度経度)
+     └──────▶ OpenStreetMap(地図タイル)
+```
+
+### 環境変数(`.env.example`)
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=        # サーバー側のみで使用
+ANTHROPIC_API_KEY=                # サーバー側のみで使用
+ANTHROPIC_MODEL=                  # 使うClaudeのモデルID。docs.claude.com で確認して設定
+ALLOWED_EMAIL=                    # ログインを許可するGoogleアカウントのメールアドレス
+AI_DAILY_LIMIT=50                 # 1日にAIを呼べる上限回数
+NOMINATIM_USER_AGENT=beer_register (連絡先メール)
+```
+
+---
+
+## 3. 画面とURL
+
+`kind` は `beer` か `sake`。
+
+| URL | 画面 | 備考 |
+| --- | --- | --- |
+| `/login` | ログイン | Googleでログイン。ALLOWED_EMAIL 以外はログアウトさせ「このアカウントは使えません」と表示 |
+| `/` | — | 最後に見ていた kind のレポートへリダイレクト(初回は beer) |
+| `/{kind}/report` | ①レポート | 下タブ1つ目 |
+| `/{kind}/list` | ②一覧 | 下タブ2つ目 |
+| `/{kind}/drafts` | 下書き一覧 | 一覧と同じ見た目 |
+| `/{kind}/new` | 記録(新規) | 一覧の＋から開く |
+| `/{kind}/{id}` | 記録(編集) | 一覧・下書き一覧・地図・Top5 のカードから開く。新規と同じフォーム |
+| `/{kind}/map` | 全画面マップ | レポートの小さな地図から開く |
+
+### 共通レイアウト
+
+- **ヘッダー**: 中央に「ビール | 日本酒」の切替ボタン(左右2つに分かれた丸いボタン)。切り替えても**同じ種類の画面**に移る(例: `/beer/list` → `/sake/list`)。編集中の画面で切り替えるときは「入力中の内容は下書きに保存しますか?」と確認する。
+- **下タブ**: 「①レポート」「②一覧」の2つ。記録・下書き・地図の画面では下タブを隠し、左上に戻るボタンを出す。
+- 最後に見ていた kind はブラウザに保存し、次に開いたときも同じ kind で始める。
+
+---
+
+## 4. デザイン
+
+### テーマ色(CSS 変数で定義し、`<html data-theme="beer|sake">` で切り替え)
+
+| 変数 | ビール | 日本酒 |
+| --- | --- | --- |
+| `--color-primary`(メイン) | `#F28C28` オレンジ | `#1F2F55` 紺 |
+| `--color-secondary`(サブ) | `#F6C343` 黄 | `#C9A54C` 金 |
+| `--color-bg`(背景) | `#FFFBF3` | `#F5F1E8` 生成り |
+| `--color-surface`(カード) | `#FFFFFF` | `#FFFFFF` |
+| `--color-text` | `#2B2B2B` | `#1E2433` |
+| `--color-text-sub` | `#6B6B6B` | `#5D6475` |
+| `--color-on-primary`(メイン色の上の文字) | `#2B2B2B` | `#FFFFFF` |
+
+- 色の値は目安。文字と背景のコントラストは WCAG AA(4.5:1)以上にする。オレンジ地に白文字は読みにくいので、ビールのボタン文字は濃い色にする。
+- 金色は日本酒の差し色として、選択中の★・強調線・アイコンなどに少しだけ使う。
+- グラフの色: ビールはオレンジ〜黄〜茶の系統、日本酒は紺〜青〜金の系統で6色ずつ用意する。
+
+### 文字・部品
+
+- フォントは Noto Sans JP のみ(明朝体は使わない)。本文16px、補足13px、見出し18〜20px。
+- タップできる部品は高さ44px以上。
+- カードは角丸12px、薄い影。
+- 画面幅は360〜430pxのスマホを基準にし、PCでは中央に最大幅480pxで表示する。
+
+---
+
+## 5. データベース(Supabase / Postgres)
+
+### 5.1 テーブル `drinks`(記録1件=1行)
+
+ビールと日本酒を1つのテーブルに入れ、`kind` で区別する。種類ごとの項目は NULL 可。
+
+```sql
+create type drink_kind as enum ('beer', 'sake');
+create type drink_status as enum ('draft', 'saved');
+
+create table drinks (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users(id) on delete cascade,
+  kind            drink_kind not null,
+  status          drink_status not null default 'draft',
+
+  -- 共通
+  drunk_on        date not null default current_date,   -- 飲んだ日
+  name            text not null,                         -- 商品名(正式名称)
+  maker           text,                                  -- 醸造所 / 酒蔵
+  maker_address   text,                                  -- 醸造所・酒蔵の所在地(文字)
+  country         text,                                  -- 国(日本酒は基本「日本」)
+  prefecture      text,                                  -- 都道府県(日本の場合)
+  lat             double precision,                      -- 地図のピン用
+  lng             double precision,
+  abv             numeric(4,1),                          -- 度数 %
+  price_yen       integer,                               -- 値段(参考価格)
+  price_note      text,                                  -- 例: 「350ml缶」「720ml」
+  rating          numeric(2,1) check (rating between 0.5 and 5 and rating * 2 = floor(rating * 2)),
+  aroma           numeric(2,1) check (aroma between 0.5 and 5 and aroma * 2 = floor(aroma * 2)),  -- 香り(両方で使う)
+  comment         text,                                  -- フリーコメント
+  image_path      text,                                  -- Storage のパス
+  category        text,                                  -- ビール: スタイル / 日本酒: 特定名称
+
+  -- ビールのみ
+  beer_family     text,                                  -- 系統: 'ale' | 'lager' | 'other'
+  bitterness      numeric(2,1) check (bitterness between 0.5 and 5 and bitterness * 2 = floor(bitterness * 2)),
+
+  -- 日本酒のみ
+  polish_ratio    integer,                               -- 精米歩合 %
+  sake_meter      numeric(4,1),                          -- 日本酒度
+  acidity         numeric(3,1),                          -- 酸度
+  rice            text,                                  -- 酒米
+  sweet_dry       smallint check (sweet_dry between 1 and 5),     -- 1=甘口 … 5=辛口
+  light_rich      smallint check (light_rich between 1 and 5),    -- 1=淡麗 … 5=濃醇
+  serving_temp    text,                                  -- 'cold' | 'room' | 'warm' | 'hot'
+
+  -- AI関連
+  ai_filled_fields text[] not null default '{}',         -- AIが埋めた項目名(画面で「AI」バッジを出す)
+  sources         jsonb not null default '[]',           -- [{title, url}] AIが参照したページ
+
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index drinks_user_kind_status_idx on drinks (user_id, kind, status, drunk_on desc);
+```
+
+- `updated_at` はトリガーで自動更新する。
+- 「保存」するときの必須項目: `name`・`drunk_on`・`rating`・`category`。下書きは `name` だけで保存できる。
+- 削除は物理削除。画像も一緒に Storage から消す。
+
+### 5.2 テーブル `research_cache`(AIの調査結果の使い回し)
+
+```sql
+create table research_cache (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  kind        drink_kind not null,
+  query_key   text not null,          -- 正規化した銘柄名(全角→半角、空白除去、小文字化)
+  result      jsonb not null,         -- §8.2 の JSON
+  created_at  timestamptz not null default now(),
+  unique (user_id, kind, query_key)
+);
+```
+
+- 同じ銘柄を90日以内に調べていれば、AIを呼ばずにこれを返す。
+
+### 5.3 テーブル `ai_reports`(レポートのAIコメント)
+
+```sql
+create table ai_reports (
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  kind          drink_kind not null,
+  comment       text not null,
+  record_count  integer not null,     -- 作ったときの保存済み件数
+  created_at    timestamptz not null default now(),
+  primary key (user_id, kind)
+);
+```
+
+### 5.4 テーブル `ai_usage`(AIの呼び出し回数の記録)
+
+```sql
+create table ai_usage (
+  id         bigserial primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  purpose    text not null,          -- 'research' | 'report' | 'quick_input'
+  created_at timestamptz not null default now()
+);
+```
+
+- その日の件数が `AI_DAILY_LIMIT` 以上ならAIを呼ばず、「今日のAI利用回数の上限に達しました」と表示する。
+
+### 5.5 セキュリティ
+
+- 全テーブルで RLS を有効にし、`user_id = auth.uid()` の行だけ読み書きできるポリシーを付ける。
+- Storage のバケット `drink-images` は非公開。パスは `{user_id}/{drink_id}.webp`。表示は署名付きURL(有効期限1時間)。
+- マイグレーションは `supabase/migrations/` に SQL ファイルで置く。
+
+---
+
+## 6. 選択肢マスタ(`src/lib/masters.ts` に定数で持つ)
+
+### 6.1 ビールのカテゴリと系統
+
+| カテゴリ | 系統(`beer_family`) |
+| --- | --- |
+| ピルスナー | lager |
+| ラガー(その他) | lager |
+| ヘレス | lager |
+| ボック | lager |
+| ラオホ | lager |
+| ペールエール | ale |
+| IPA | ale |
+| セッションIPA | ale |
+| ヘイジーIPA | ale |
+| ダブルIPA | ale |
+| ヴァイツェン | ale |
+| ベルジャンホワイト | ale |
+| セゾン | ale |
+| アンバーエール | ale |
+| ブラウンエール | ale |
+| ポーター | ale |
+| スタウト | ale |
+| ケルシュ | ale |
+| トリペル | ale |
+| バーレイワイン | ale |
+| サワーエール | other |
+| フルーツビール | other |
+| その他 | other |
+
+系統の表示名: ale=エール系、lager=ラガー系、other=その他。
+
+### 6.2 日本酒の特定名称
+
+純米大吟醸 / 純米吟醸 / 特別純米 / 純米 / 大吟醸 / 吟醸 / 特別本醸造 / 本醸造 / 普通酒 / その他
+
+### 6.3 飲んだ温度(日本酒)
+
+cold=冷酒 / room=常温 / warm=ぬる燗 / hot=熱燗
+
+### 6.4 都道府県
+
+47都道府県の一覧(北から順)。地図・制覇率で使う。
+
+### 6.5 写真がないときのアイコン
+
+- ビール: 系統ごとに3種類(エール系=濃い色のグラス、ラガー系=明るい色のグラス、その他=缶)
+- 日本酒: 1種類(徳利とおちょこ)
+- アイコンは SVG で自作する(既存のキャラクターやブランドのロゴは使わない)。
+
+---
+
+## 7. 各画面の詳細
+
+### 7.1 ①レポート(`/{kind}/report`)
+
+上から順に次のカードを並べる。集計の対象は `status = 'saved'` の記録だけ。
+
+**A. AIのひとこと**(ビール・日本酒共通)
+- 例: 「エール系が6割で、特にIPAの評価が高めです」「7・8月はラガーが多くなっています」
+- §8.3 の仕組みで作り、`ai_reports` に保存したものを表示する。
+- 右上に再作成ボタン。保存済みが3件未満のときは「3件以上記録するとAIのコメントが出ます」と表示。
+
+**1-1 今まで飲んだ銘柄の数**
+- 保存済みの `name` を正規化(§5.2 と同じ方法)して重複を除いた数。大きな数字で「42 銘柄」のように出す。
+
+**1-2 過去6か月の高評価 Top5**
+- 条件: `drunk_on` が今日から6か月前以降。
+- 並び順: `rating` の高い順 → 同点なら `drunk_on` の新しい順。同じ銘柄が複数あれば一番評価の高い1件だけ。
+- 表示: 順位・写真(小)・商品名・カテゴリ・★評価。タップで記録画面を開く。
+- 0件なら「過去6か月の記録はまだありません」。
+
+**1-3 マップ(小さな窓)**
+- 高さ180px程度。操作はできない縮小表示で、記録のある範囲が収まるよう自動で拡大率を合わせる。
+- 右上に「タップで全画面」。タップで `/{kind}/map` を開く。
+- 緯度経度がない記録はピンを出さない。
+
+**1-4 カテゴリの内訳(円グラフ)**
+- ビール: `category` 別の件数。日本酒: 特定名称別の件数。
+- 多い順に上位5つ+「その他」にまとめる。凡例に件数と割合を出す。
+- 円の中央に合計件数。
+
+**日本酒のみ: 好みマップ**
+- 散布図。横軸 = 甘口(1)〜辛口(5)、縦軸 = 淡麗(1)〜濃醇(5)。
+- 1銘柄=1点。点の大きさ = 総合評価(高いほど大きい)。同じ位置に重なる点は少しずらす。
+- 点をタップで銘柄名と★を表示、もう一度タップで記録画面。
+- 総合評価4以上の点が多い領域を薄く色付けし、下に「淡麗辛口がお好きな傾向です」のような一文を出す(この一文は集計からルールで作る。AIは使わない)。
+
+**日本酒のみ: 都道府県の制覇率**
+- 「12 / 47 都道府県」と割合のバー。
+- その下に47都道府県のタイル(日本地図風に並べたマス目)を出し、飲んだ県を金色で塗る。タップでその県の銘柄一覧。
+
+### 7.2 全画面マップ(`/{kind}/map`)
+
+- ピンチアウト・ピンチインで拡大縮小、ドラッグで移動。
+- 近いピンはまとめて数字付きの丸で表示し、拡大すると分かれる。
+- ピンをタップすると下からカードが出る(写真・商品名・醸造所・★)。カードをタップで記録画面。
+- 右下に「全体を表示」ボタン。
+
+### 7.3 ②一覧(`/{kind}/list`)と下書き一覧(`/{kind}/drafts`)
+
+- 上部右に2つのアイコンボタン: **＋**(記録画面 `/new` へ)と **下書き**(下書き一覧へ。下書きが1件以上あれば件数バッジ)。
+- 検索欄(商品名・醸造所で部分一致)と、絞り込み(カテゴリ、★○以上)、並び替え(飲んだ日の新しい順 / 評価の高い順)。
+- **表形式**で表示する。列は「小さい画像(36px角)・日付・商品名・評価(★と数字)」の4つ。商品名が長いときは2行まで表示して省略。
+- 行をタップで記録画面(編集)。
+- 下書き一覧も同じ表形式で、`status = 'draft'` だけを出す。行をタップすると記録画面で開き、続きを入力して「下書き保存」(上書き)か「保存」(本保存)ができる。
+- 一覧は20件ずつ読み込み、下までスクロールしたら続きを読む。
+- 0件のときは「まだ記録がありません。＋から記録しましょう」と＋ボタン。
+
+### 7.4 記録画面(`/{kind}/new`、`/{kind}/{id}`)
+
+上から順に:
+
+1. **写真**(左の丸いアイコン、直径72px)。タップで「撮影する / アルバムから選ぶ / 削除」。写真がなければカテゴリのアイコン。
+2. **商品名**(写真の右)
+3. **「名前からAIで自動入力」ボタン**(商品名の下)。§8.2 を実行する。
+4. 種類ごとの項目(下表)
+5. **フリーコメント**(複数行)
+6. ボタン: **下書き保存**(左)と **保存**(右、メイン色)。編集時は一番下に「この記録を削除」(確認ダイアログあり)。
+
+画面上部に「チャットで入力」リンクを置き、§8.4 のクイック入力を開く。
+
+#### ビールの項目
+
+| 項目 | 部品 | 備考 |
+| --- | --- | --- |
+| カテゴリ | プルダウン(§6.1) | 系統は自動で決まる |
+| 日付 | 日付選択 | 初期値は今日 |
+| 度数 | 数字(%、小数1桁) | |
+| 値段 | 数字(円)+ 補足(例: 350ml缶) | |
+| 醸造所 | 文字 | |
+| 醸造所の場所 | 文字(住所や都市名) | 保存時に緯度経度を自動取得(§8.5) |
+| 総合評価 | ★5(0.5刻み) | |
+| 苦み | ★5(0.5刻み) | |
+| 香り | ★5(0.5刻み) | |
+
+#### 日本酒の項目
+
+| 項目 | 部品 | 備考 |
+| --- | --- | --- |
+| 特定名称 | プルダウン(§6.2) | |
+| 日付 | 日付選択 | 初期値は今日 |
+| 度数 | 数字 | |
+| 精米歩合 | 数字(%) | |
+| 日本酒度 | 数字(マイナス可) | |
+| 酸度 | 数字 | |
+| 酒米 | 文字 | |
+| 値段 | 数字(円)+ 補足(例: 720ml) | |
+| 酒蔵 | 文字 | |
+| 酒蔵の場所 | 文字 + 都道府県プルダウン | 保存時に緯度経度を自動取得 |
+| 総合評価 | ★5(0.5刻み) | |
+| 甘口〜辛口 | 5段階スライダー(左端「甘口」右端「辛口」) | |
+| 淡麗〜濃醇 | 5段階スライダー(左端「淡麗」右端「濃醇」) | |
+| 香り | ★5(0.5刻み) | |
+| 飲んだ温度 | ボタン4つから1つ(冷酒・常温・ぬる燗・熱燗) | |
+
+#### 部品の決まりごと
+
+- **★評価**: 星の左半分をタップで0.5、右半分で1.0。同じ値をもう一度タップで未入力に戻す。横にスライドしても選べる。値は数字でも横に表示(例: 3.5)。
+- **AIが埋めた項目**: 入力欄の右に小さな「AI」バッジを出す。ユーザーが書き換えたらバッジを消し、`ai_filled_fields` からも外す。
+- **出典**: AIが調べた記録は、フォームの下に「参考にしたページ」を折りたたみで出す(リンク付き)。
+- **入力チェック**: 保存時に必須項目(§5.1)が空なら、その欄を赤枠にして上にスクロール。下書き保存は商品名だけあれば通る。
+- **離脱時**: 未保存の変更があるまま戻ろうとしたら「下書きに保存 / 破棄 / キャンセル」を聞く。
+- 保存したら一覧へ戻り、「保存しました」と短く表示する。
+
+---
+
+## 8. AI機能
+
+すべて Next.js の Route Handler(`/app/api/...`)からサーバー側で Claude API を呼ぶ。呼ぶ前に、ログイン中かと `AI_DAILY_LIMIT` を確認し、`ai_usage` に1行記録する。
+
+### 8.1 共通
+
+- モデルは `ANTHROPIC_MODEL` から読む。
+- Web検索は Claude API のサーバー側Web検索ツールを使う(ツール名・バージョンは docs.claude.com で確認)。1回の検索回数の上限を5程度に設定する。
+- 返り値は JSON で受け取り、zod で形を検証する。形が合わなければ1回だけやり直し、それでもだめならエラーを表示する。
+- タイムアウトは60秒。待っている間はボタンにくるくるを出し「調べています…」と表示。
+
+### 8.2 名前からAIで自動入力 `POST /api/research`
+
+入力: `{ kind, name }`
+
+流れ:
+1. `name` を正規化して `research_cache` を探す。90日以内の結果があればそれを返す(AIは呼ばない)。
+2. なければ Claude にWeb検索つきで調べさせる。
+3. 結果を `research_cache` に保存して返す。
+4. 画面側: 候補が1つならフォームに入れる。複数なら下から候補一覧を出して選ばせる。**フォームにユーザーが既に入れている値は上書きしない**(空の欄だけ埋める)。埋めた項目は `ai_filled_fields` に入れる。
+
+返り値の JSON(ビール):
+
+```json
+{
+  "candidates": [
+    {
+      "name": "(正式な商品名)",
+      "maker": "(醸造所名)",
+      "maker_address": "(所在地。市区町村まで)",
+      "country": "日本",
+      "prefecture": "(都道府県)",
+      "category": "ペールエール",
+      "abv": 5.5,
+      "price_yen": 300,
+      "price_note": "350ml缶の参考価格",
+      "sources": [{ "title": "ページのタイトル", "url": "https://..." }]
+    }
+  ],
+  "note": "限定品が複数あったため候補を2つ出しました"
+}
+```
+
+(上の値は形を示すためのダミー。実際の値はAIが調べた結果を使う)
+
+日本酒は `category` に特定名称を入れ、`polish_ratio`・`sake_meter`・`acidity`・`rice` を加える。
+
+`category` はマスタ(§6)のどれかに合わせる。合わないときは「その他」。
+
+調査用プロンプト(システムプロンプトの骨子):
+
+```
+あなたはお酒の情報を調べるアシスタントです。
+ユーザーが入力した{ビール|日本酒}の銘柄について、Web検索で次の項目を調べ、指定のJSONだけを返してください。
+- 正式な商品名、醸造所(酒蔵)、所在地、国、都道府県、カテゴリ、度数、参考価格と容量
+- 日本酒の場合は、特定名称、精米歩合、日本酒度、酸度、酒米も
+ルール:
+- 公式サイトやメーカーの情報を優先する。参考価格はメーカー希望小売価格、なければ一般的な販売価格
+- 見つからない項目は null にする。推測で埋めない
+- 同じ名前で別の商品(限定品・別の醸造所)がある場合は、候補を最大3つ出す
+- カテゴリは次の一覧から選ぶ: {マスタ一覧}
+- 参照したページのタイトルとURLを sources に入れる
+```
+
+### 8.3 レポートのAIコメント `POST /api/report-comment`
+
+- AIにデータをそのまま渡さず、**アプリ側で集計した結果だけ**を渡す。数字の計算はAIにさせない。
+- 渡す集計: 保存済み件数、カテゴリ別件数と平均★、系統別件数(ビール)、月別件数(直近12か月)とその月に多いカテゴリ、Top5、日本酒は甘辛・濃淡の平均と温度別の平均★。
+- 返すもの: 2〜3文、120字以内の日本語。ですます調。断定しすぎない(「〜な傾向です」)。
+- 作り直すタイミング: レポートを開いたとき、保存済み件数が `ai_reports.record_count` から3件以上増えていたら自動で作り直す。それ以外は保存済みのコメントを出す。再作成ボタンで手動でも作り直せる。
+
+### 8.4 チャットで入力(クイック入力) `POST /api/quick-input`
+
+- 記録画面の「チャットで入力」から、下からシートを開く。
+- 例:「○○エール ★4 苦め、唐揚げと合う」と送る。
+- AIが文章を分けて JSON にする: `{ name, rating, bitterness, aroma, sweet_dry, light_rich, serving_temp, comment }`(言及がない項目は null)。
+- その後、`name` で §8.2 を続けて実行し、両方の結果をフォームに入れる。この時点では**下書き**。ユーザーが確認して保存する。
+- 「苦め」「すっきり」のような言葉を★やスライダーに置き換えるときの目安もプロンプトに書く(例: 苦め=4、とても苦い=5、すっきり辛口=辛口4)。
+
+### 8.5 住所から緯度経度 `POST /api/geocode`
+
+- 記録の保存時に、`maker_address` があり `lat/lng` が空なら呼ぶ。
+- Nominatim に問い合わせる(1秒に1回まで、User-Agent を付ける)。
+- 見つからなければ「都道府県」や「国」だけでもう一度探す。それでもなければピンなし。
+- 結果は同じ住所で使い回せるよう、サーバー側で簡単にキャッシュする(テーブル `geocode_cache(address text primary key, lat, lng)` を追加してよい)。
+
+---
+
+## 9. 認証
+
+- Supabase Auth の Google ログイン。
+- ログイン後、メールが `ALLOWED_EMAIL` と違えばすぐログアウトさせる。
+- 未ログインで `/login` 以外を開いたら `/login` へ移す(middleware で判定)。
+- ログイン状態は保持し、毎回ログインしなくてよい。
+
+---
+
+## 10. PWA
+
+- `manifest.webmanifest`: name「のみくらべ帳」(仮)、`display: standalone`、テーマ色はビールのオレンジ、アイコン192px・512px(グラスとおちょこを組み合わせたオリジナルのアイコン)。
+- iPhone 用に `apple-touch-icon` とステータスバーの設定。
+- オフライン対応は最初の版では不要。電波がないときは「通信できません」と表示する。
+
+---
+
+## 11. フォルダ構成(目安)
+
+```
+beer_register/
+├─ src/
+│  ├─ app/
+│  │  ├─ login/page.tsx
+│  │  ├─ [kind]/report/page.tsx
+│  │  ├─ [kind]/list/page.tsx
+│  │  ├─ [kind]/drafts/page.tsx
+│  │  ├─ [kind]/new/page.tsx
+│  │  ├─ [kind]/[id]/page.tsx
+│  │  ├─ [kind]/map/page.tsx
+│  │  ├─ api/research/route.ts
+│  │  ├─ api/report-comment/route.ts
+│  │  ├─ api/quick-input/route.ts
+│  │  └─ api/geocode/route.ts
+│  ├─ components/        # StarRating, Slider5, KindToggle, BottomTabs, DrinkCard, ImagePicker, charts/ など
+│  ├─ lib/
+│  │  ├─ masters.ts      # §6 の選択肢
+│  │  ├─ supabase/       # クライアント生成
+│  │  ├─ ai/             # Claude 呼び出し、プロンプト、zod スキーマ
+│  │  ├─ stats.ts        # レポートの集計(テストを書く)
+│  │  └─ normalize.ts    # 銘柄名の正規化(テストを書く)
+│  └─ styles/theme.css   # §4 の CSS 変数
+├─ supabase/migrations/
+├─ public/icons/
+├─ .env.example
+└─ README.md             # 日本語のセットアップ手順
+```
+
+---
+
+## 12. テスト
+
+- `lib/stats.ts`(銘柄数、Top5、円グラフ、好みマップ、制覇率の集計)と `lib/normalize.ts` は Vitest で単体テストを書く。
+- ★評価の部品は、0.5刻みの入力と未入力に戻す動きをテストする。
+- AI呼び出しはテストでは本物を呼ばず、固定の JSON を返すようにする。
+- 開発用に、ビール15件・日本酒10件程度のサンプルデータを入れるスクリプト(`npm run seed`)を用意する。サンプルの銘柄は架空の名前にする。
+
+---
+
+## 13. マイルストーン(この順に作る)
+
+| # | 内容 | できあがりの確認 |
+| --- | --- | --- |
+| 1 | 準備: Next.js の雛形、Tailwind、テーマ色、フォント、README にSupabase・Vercel・Anthropicのアカウント作成手順 | `npm run dev` で切替ボタンと下タブだけの画面が出て、色が切り替わる |
+| 2 | ログインとDB: Supabase のテーブル・RLS・Storage、Googleログイン、許可メール制限 | スマホでログインでき、他のアカウントは入れない |
+| 3 | 記録の基本: 記録画面(手入力)、下書き保存、一覧、下書き一覧、編集、削除、写真 | 手入力でビールを記録・編集・削除できる |
+| 4 | AI自動入力: `/api/research`、候補選択、AIバッジ、出典、キャッシュ、利用回数上限 | 名前を入れてボタンを押すと項目が埋まる |
+| 5 | チャットで入力: `/api/quick-input` | 「○○ ★4 苦め」で下書きができる |
+| 6 | 地図: 住所→緯度経度、全画面マップ、クラスタ表示 | 醸造所にピンが立ち、ピンチで拡大できる |
+| 7 | レポート(ビール): 1-1〜1-4、AIのひとこと | レポート画面が完成 |
+| 8 | 日本酒: 日本酒の項目、好みマップ、都道府県の制覇率 | 切替ボタンで日本酒側も一通り使える |
+| 9 | 仕上げ: PWA、Vercel への公開、README の更新 | スマホのホーム画面から起動できる |
+
+---
+
+## 14. 最初の版でやらないこと
+
+- 複数人での利用・共有
+- 既存スプレッドシートからの取り込み(後でCSV取り込みを追加するかもしれない)
+- 飲んだ店の場所の記録
+- オフラインでの記録
+- ビール・日本酒以外のお酒(ただし `drink_kind` に値を足せば増やせる作りにしておく)
