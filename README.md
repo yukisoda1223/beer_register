@@ -130,10 +130,12 @@ src/
 │  └─ [kind]/                # [kind] は beer か sake
 │     ├─ layout.tsx          # ヘッダー(切替ボタン)と下タブ
 │     ├─ report/page.tsx     # レポート
-│     └─ list/page.tsx       # 一覧
+│     ├─ list/page.tsx       # 一覧
+│     └─ [id]/page.tsx       # 記録の詳細(編集・削除ボタン)
 ├─ components/               # 切替ボタン・下タブ・★表示・アイコンなど
 ├─ lib/
 │  ├─ kinds.ts               # お酒の種類と、切替のときの移動先
+│  ├─ drink.ts               # 記録の型と、産地・日付の表示
 │  └─ sample.ts              # 見た目確認用のサンプル(後で消す)
 └─ styles/theme.css          # テーマ色(ビール/日本酒)
 docs/SPEC.md                 # 仕様書

@@ -4,15 +4,13 @@ import { BottomTabs } from "@/components/BottomTabs";
 import { ThemeSync } from "@/components/ThemeSync";
 import { KINDS, isKind } from "@/lib/kinds";
 
-// /beer と /sake 以外の URL は 404 にする
-export const dynamicParams = false;
-
 export function generateStaticParams() {
   return KINDS.map((kind) => ({ kind }));
 }
 
 export default async function KindLayout({ children, params }: LayoutProps<"/[kind]">) {
   const { kind } = await params;
+  // /beer と /sake 以外の URL は 404 にする
   if (!isKind(kind)) notFound();
 
   return (

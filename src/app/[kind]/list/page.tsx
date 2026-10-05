@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { DrinkIcon } from "@/components/DrinkIcon";
 import { SampleNotice } from "@/components/SampleNotice";
-import { StarDisplay } from "@/components/StarDisplay";
+import { formatDateShort, iconTypeOf, originLabel } from "@/lib/drink";
 import type { Kind } from "@/lib/kinds";
 import { SAMPLE_DRINKS } from "@/lib/sample";
 
@@ -23,37 +24,48 @@ export default async function ListPage({ params }: PageProps<"/[kind]/list">) {
         </div>
       </div>
 
-      <SampleNotice>いまはサンプル表示です。＋・下書き・検索はマイルストーン3で使えるようになります。</SampleNotice>
+      <SampleNotice>いまはサンプル表示です。行をタップすると詳細が見られます。＋・下書き・検索はマイルストーン3で使えるようになります。</SampleNotice>
 
       <div className="overflow-hidden rounded-xl bg-(--color-surface) shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-        <table className="w-full table-fixed text-left">
-          <thead className="bg-(--color-bg) text-[13px] text-(--color-text-sub)">
-            <tr>
-              <th className="w-12 py-2 pl-3 font-normal"><span className="sr-only">画像</span></th>
-              <th className="w-16 py-2 font-normal">日付</th>
-              <th className="py-2 font-normal">商品名</th>
-              <th className="w-28 py-2 pr-3 font-normal">評価</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-(--color-border)">
-            {drinks.map((d) => (
-              <tr key={d.id} className="h-14">
-                <td className="py-2 pl-3"><DrinkIcon type={d.icon} size={36} /></td>
-                <td className="py-2 text-[13px] tabular-nums text-(--color-text-sub)">{formatDate(d.drunkOn)}</td>
-                <td className="py-2 pr-2"><span className="line-clamp-2 leading-snug">{d.name}</span></td>
-                <td className="py-2 pr-3"><StarDisplay value={d.rating} size={12} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div role="row" className={`${ROW_GRID} bg-(--color-bg) py-2 text-[13px] text-(--color-text-sub)`}>
+          <span role="columnheader"><span className="sr-only">画像</span></span>
+          <span role="columnheader">日付</span>
+          <span role="columnheader">商品名</span>
+          <span role="columnheader">産地</span>
+          <span role="columnheader">評価</span>
+        </div>
+        <ul className="divide-y divide-(--color-border)">
+          {drinks.map((d) => (
+            <li key={d.id}>
+              <Link href={`/${kind}/${d.id}`} className={`${ROW_GRID} min-h-14 py-2 active:bg-(--color-bg)`}>
+                <DrinkIcon type={iconTypeOf(d)} size={36} />
+                <span className="text-[13px] tabular-nums text-(--color-text-sub)">{formatDateShort(d.drunk_on)}</span>
+                <span className="line-clamp-2 leading-snug">{d.name}</span>
+                <span className="line-clamp-2 text-[13px] leading-snug text-(--color-text-sub)">
+                  {originLabel(d) ?? "—"}
+                </span>
+                <RatingCompact value={d.rating} />
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
 }
 
-function formatDate(iso: string) {
-  const [, m, d] = iso.split("-");
-  return `${Number(m)}/${Number(d)}`;
+// 行の列の幅: 画像・日付・商品名・産地・評価
+const ROW_GRID = "grid grid-cols-[36px_36px_minmax(0,1fr)_56px_44px] items-center gap-2 px-3";
+
+// 一覧用の小さな評価表示(★1つ+数字)
+function RatingCompact({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-[13px] text-(--color-text-sub)">—</span>;
+  return (
+    <span className="flex items-center gap-0.5 text-[13px] font-bold tabular-nums" aria-label={`5点中${value}点`}>
+      <span aria-hidden className="text-(--color-secondary)">★</span>
+      {value.toFixed(1)}
+    </span>
+  );
 }
 
 function IconButton({

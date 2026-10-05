@@ -1,14 +1,16 @@
 import { Card } from "@/components/Card";
+import Link from "next/link";
 import { DrinkIcon } from "@/components/DrinkIcon";
 import { SampleNotice } from "@/components/SampleNotice";
 import { StarDisplay } from "@/components/StarDisplay";
 import { KIND_LABELS, type Kind } from "@/lib/kinds";
-import { SAMPLE_AI_COMMENT, SAMPLE_CATEGORY_COUNTS, SAMPLE_DRINKS } from "@/lib/sample";
+import { iconTypeOf } from "@/lib/drink";
+import { SAMPLE_CATEGORY_COUNTS, SAMPLE_DRINKS, SAMPLE_SUMMARY } from "@/lib/sample";
 
 // ①レポート。いまはダミー表示(本物の集計は M7・M8 で作る)
 export default async function ReportPage({ params }: PageProps<"/[kind]/report">) {
   const kind = (await params).kind as Kind;
-  const top5 = [...SAMPLE_DRINKS[kind]].sort((a, b) => b.rating - a.rating).slice(0, 5);
+  const top5 = [...SAMPLE_DRINKS[kind]].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 5);
   const categories = SAMPLE_CATEGORY_COUNTS[kind];
   const total = categories.reduce((sum, c) => sum + c.count, 0);
 
@@ -16,28 +18,33 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
     <div className="flex flex-col gap-4">
       <SampleNotice>いまはサンプル表示です。記録ができるようになると本物の集計に変わります。</SampleNotice>
 
-      <Card title="AIのひとこと">
-        <p className="leading-relaxed">{SAMPLE_AI_COMMENT[kind]}</p>
+      <Card title="Your Summary">
+        <p className="leading-relaxed">{SAMPLE_SUMMARY[kind]}</p>
       </Card>
 
       <Card title="今まで飲んだ銘柄の数">
-        <p className="text-center">
-          <span className="text-5xl font-bold tabular-nums text-(--color-accent-text)">{total}</span>
-          <span className="ml-1 text-lg">銘柄</span>
+        <p className="flex items-baseline justify-center gap-2 py-2">
+          <span className="text-8xl leading-none font-black tracking-tight tabular-nums text-(--color-accent-text)">
+            {total}
+          </span>
+          <span className="text-xl font-bold">銘柄</span>
         </p>
+        <div className="mx-auto mt-2 h-1.5 w-24 rounded-full bg-(--color-secondary)" />
       </Card>
 
       <Card title="過去6か月の高評価 Top5">
         <ol className="flex flex-col divide-y divide-(--color-border)">
           {top5.map((d, i) => (
-            <li key={d.id} className="flex min-h-14 items-center gap-3 py-2">
-              <span className="w-5 text-center text-lg font-bold text-(--color-accent-text)">{i + 1}</span>
-              <DrinkIcon type={d.icon} size={40} />
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 font-bold leading-snug">{d.name}</p>
-                <p className="text-[13px] text-(--color-text-sub)">{d.category}</p>
-              </div>
-              <StarDisplay value={d.rating} size={14} />
+            <li key={d.id}>
+              <Link href={`/${kind}/${d.id}`} className="flex min-h-14 items-center gap-3 py-2">
+                <span className="w-5 text-center text-lg font-bold text-(--color-accent-text)">{i + 1}</span>
+                <DrinkIcon type={iconTypeOf(d)} size={40} />
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 font-bold leading-snug">{d.name}</p>
+                  <p className="text-[13px] text-(--color-text-sub)">{d.category}</p>
+                </div>
+                <StarDisplay value={d.rating ?? 0} size={14} />
+              </Link>
             </li>
           ))}
         </ol>
