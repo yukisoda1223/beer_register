@@ -1,5 +1,6 @@
 import { Card } from "@/components/Card";
 import Link from "next/link";
+import { AccountFooter } from "@/components/AccountFooter";
 import { DrinkIcon } from "@/components/DrinkIcon";
 import { SampleNotice } from "@/components/SampleNotice";
 import { StarDisplay } from "@/components/StarDisplay";
@@ -62,6 +63,8 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
       <Card title="カテゴリの内訳">
         <CategoryDonut categories={categories} total={total} />
       </Card>
+
+      <AccountFooter />
     </div>
   );
 }

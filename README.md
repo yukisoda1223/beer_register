@@ -8,7 +8,7 @@
 | # | 内容 | 状態 |
 | --- | --- | --- |
 | 1 | 準備(雛形・テーマ色・フォント・切替ボタン・下タブ) | ✅ 完了 |
-| 2 | ログインとDB(Supabase・Googleログイン) | これから |
+| 2 | ログインとDB(Supabase・Googleログイン) | ✅ コード完了(下の「3. ログインの設定」をやると動きます) |
 | 3 | 記録の基本(記録・下書き・一覧・編集・削除・写真) | これから |
 | 4 | AI自動入力 | これから |
 | 5 | チャットで入力 | これから |
@@ -62,7 +62,9 @@ npm install
 Copy-Item .env.example .env.local
 ```
 
-`.env.local` には後のマイルストーンで APIキーなどを書き込みます。**このファイルは他人に見せたり Git に入れたりしないでください**(`.gitignore` で除外済みです)。マイルストーン1では空のままで動きます。
+`.env.local` には Supabase の接続先などを書き込みます(「3. ログインの設定」)。**このファイルは他人に見せたり Git に入れたりしないでください**(`.gitignore` で除外済みです)。
+
+`.env.local` はメモ帳で開けます: `notepad .env.local`
 
 ### 1-5. 起動する
 
@@ -112,7 +114,88 @@ npm install
 
 ---
 
-## 3. よく使うコマンド
+## 3. ログインの設定(マイルストーン2)
+
+上から順に進めてください。画面のメニュー名は、サービス側の変更で少し違うことがあります。
+
+### 3-1. Supabase のプロジェクトを作る
+
+1. https://supabase.com/dashboard を開いて「New project」。
+2. 次のように入れて「Create new project」。
+   - Name: `beer_register`
+   - Database Password: 「Generate a password」で作り、**メモしておく**
+   - Region: **Northeast Asia (Tokyo)**
+3. 準備ができるまで1〜2分待ちます。
+
+### 3-2. テーブルを作る(SQL を実行)
+
+1. 左のメニューの「SQL Editor」を開き、「New query」。
+2. このリポジトリの `supabase/migrations/20261005000000_init.sql` をメモ帳などで開き、**中身を全部コピーして貼り付け**、右下の「Run」。
+3. 「Success. No rows returned」と出ればOK。
+4. 確認: 「Table Editor」に `drinks` `research_cache` `ai_reports` `ai_usage` `geocode_cache` の5つ、「Storage」に `drink-images` があること。
+
+> 2回目に実行すると「already exists」のエラーになります。1回だけ実行してください。
+
+### 3-3. Google ログイン用の設定を作る(Google Cloud)
+
+1. https://console.cloud.google.com を開き、上部のプロジェクト選択から「新しいプロジェクト」→ 名前 `beer-register` で作成し、そのプロジェクトを選びます。
+2. 検索欄で「**Google Auth Platform**」を開き、「開始」(Get started)。
+   - アプリ名: `のみくらべ帳`、ユーザーサポートメール: 自分のGmail
+   - 対象(Audience): **外部(External)**
+   - 連絡先メール: 自分のGmail → 同意して「作成」
+3. 左の「対象」(Audience)→「テストユーザー」に**自分のGmailを追加**します。
+   - アプリは「テスト中」のままでOKです。テスト中は、ここに入れたアカウントしか Google 側でログインできないので、より安全です。
+4. 左の「クライアント」(Clients)→「クライアントを作成」。
+   - アプリケーションの種類: **ウェブ アプリケーション**、名前: `beer_register`
+   - 承認済みの JavaScript 生成元: `http://localhost:3000`
+   - 承認済みのリダイレクト URI: `https://(SupabaseのプロジェクトID).supabase.co/auth/v1/callback`
+     - この URL は、次の 3-4 で Supabase の Google 設定画面に「Callback URL (for OAuth)」として表示されるので、それをコピーするのが確実です。
+5. 「作成」すると **クライアント ID** と **クライアント シークレット** が出るので、控えておきます(シークレットは他人に見せない)。
+
+### 3-4. Supabase に Google ログインをつなぐ
+
+1. Supabase の左メニュー「Authentication」→「Sign In / Providers」(または「Providers」)→「**Google**」。
+2. 「Enable」をオンにし、3-3 の **Client ID** と **Client Secret** を貼って「Save」。
+3. 「Authentication」→「URL Configuration」で次を設定して保存。
+   - Site URL: `http://localhost:3000`
+   - Redirect URLs に追加: `http://localhost:3000/**`
+
+### 3-5. `.env.local` に値を入れる
+
+Supabase の「Project Settings」→「API Keys」(Project URL は「Data API」や画面上部の「Connect」にもあります)で値を確認し、`.env.local` に入れます。
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://(プロジェクトID).supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+ALLOWED_EMAIL=(ログインに使う自分のGmail)
+```
+
+保存したら、PowerShell で `Ctrl + C` で止めて、もう一度 `npm run dev`(`.env.local` を変えたら必ず起動し直す)。
+
+### 3-6. 動作確認
+
+1. http://localhost:3000 を開くと**ログイン画面**になる。
+2. 「Googleでログイン」→ 自分のアカウントを選ぶ → レポート画面に移り、**一番下に「(メール) でログイン中」とログアウトボタン**が出る。
+3. ログアウト → もう一度 http://localhost:3000 を開くとログイン画面に戻る。
+4. (できれば)別のGoogleアカウントでは入れないことを確認する。
+   - 3-3 のテストユーザーに別のアカウントも一時的に足してログインすると、「このアカウントは使えません」と出てログアウトされます。確認後はテストユーザーから外してください。
+
+### 3-7. 仕上げ: 新しいユーザーの登録を止める
+
+自分でログインできたら、Supabase の「Authentication」→「Sign In / Providers」の上部にある「**Allow new users to sign up**」をオフにして保存します。これで自分以外は Supabase にアカウントを作れなくなります。
+
+### スマホで試す(同じ Wi-Fi の場合)
+
+1. パソコンの IP アドレスを調べる: PowerShell で `ipconfig` → 「IPv4 アドレス」(例: `192.168.1.23`)。
+2. `npm run dev -- -H 0.0.0.0` で起動する。Windows のファイアウォールの確認が出たら「プライベート ネットワーク」で許可。
+3. Supabase の「URL Configuration」→ Redirect URLs に `http://192.168.1.23:3000/**`(自分の IP)を追加。
+4. スマホのブラウザで `http://192.168.1.23:3000` を開いてログイン。
+
+> うまくいかなくても大丈夫です。マイルストーン9でインターネットに公開すると、スマホからは普通に使えるようになります。
+
+---
+
+## 4. よく使うコマンド
 
 | コマンド | すること |
 | --- | --- |
@@ -121,12 +204,14 @@ npm install
 | `npm test` | 自動テストを実行する |
 | `npm run lint` | コードの書き方をチェックする |
 
-## 4. フォルダの中身(主なもの)
+## 5. フォルダの中身(主なもの)
 
 ```
 src/
 ├─ app/
 │  ├─ page.tsx               # 「/」→ 最後に見ていた種類のレポートへ移る
+│  ├─ login/                 # ログイン画面
+│  ├─ auth/                  # Googleログインの戻り先・ログアウト
 │  └─ [kind]/                # [kind] は beer か sake
 │     ├─ layout.tsx          # ヘッダー(切替ボタン)と下タブ
 │     ├─ report/page.tsx     # レポート
@@ -134,9 +219,13 @@ src/
 │     └─ [id]/page.tsx       # 記録の詳細(編集・削除ボタン)
 ├─ components/               # 切替ボタン・下タブ・★表示・アイコンなど
 ├─ lib/
+│  ├─ auth.ts                # ログインを許可するメールの判定
+│  ├─ supabase/              # Supabase への接続
 │  ├─ kinds.ts               # お酒の種類と、切替のときの移動先
 │  ├─ drink.ts               # 記録の型と、産地・日付の表示
 │  └─ sample.ts              # 見た目確認用のサンプル(後で消す)
-└─ styles/theme.css          # テーマ色(ビール/日本酒)
+├─ styles/theme.css          # テーマ色(ビール/日本酒)
+└─ proxy.ts                  # 未ログインならログイン画面へ移す
+supabase/migrations/         # データベースを作る SQL
 docs/SPEC.md                 # 仕様書
 ```

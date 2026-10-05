@@ -63,8 +63,8 @@
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=        # サーバー側のみで使用
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # Supabase の新しい名前。旧 anon key でも可
+SUPABASE_SECRET_KEY=              # サーバー側のみで使用(旧 service_role key)
 ANTHROPIC_API_KEY=                # サーバー側のみで使用
 ANTHROPIC_MODEL=                  # 使うClaudeのモデルID。docs.claude.com で確認して設定
 ALLOWED_EMAIL=                    # ログインを許可するGoogleアカウントのメールアドレス
@@ -508,6 +508,8 @@ cold=冷酒 / room=常温 / warm=ぬる燗 / hot=熱燗
 - ログイン後、メールが `ALLOWED_EMAIL` と違えばすぐログアウトさせる。
 - 未ログインで `/login` 以外を開いたら `/login` へ移す(middleware で判定)。
 - ログイン状態は保持し、毎回ログインしなくてよい。
+- 最初に本人がログインしたあと、Supabase の「新規ユーザーの登録」を無効にし、他のGoogleアカウントは Supabase 側でも登録できないようにする。
+- ログアウトはレポート画面の一番下(ログイン中のメールアドレスと一緒に表示)。
 
 ---
 
