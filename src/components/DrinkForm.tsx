@@ -25,6 +25,7 @@ import {
   type DrinkFormValues,
 } from "@/lib/drink-form";
 import { IMAGE_BUCKET, deleteDrink, errorMessage } from "@/lib/drinks-db";
+import { geocodeOnClient, locationKey } from "@/lib/geo/client";
 import { compressImage, extensionOf } from "@/lib/image";
 import type { Kind } from "@/lib/kinds";
 import {
@@ -53,6 +54,16 @@ type Snapshot = { values: DrinkFormValues; aiFilled: string[]; sources: Drink["s
 
 type ResearchResponse = ResearchResult & { cached: boolean };
 
+// データベースに保存済みの内容のうち、保存のしかたに関わるもの
+type SavedState = {
+  status: Status;
+  image_path: string | null;
+  lat: number | null;
+  lng: number | null;
+  // 緯度経度を調べたときの「所在地|都道府県|国」
+  locationKey: string;
+};
+
 function mergeSources(prev: Drink["sources"], add: Drink["sources"]) {
   const urls = new Set(prev.map((s) => s.url));
   return [...prev, ...add.filter((s) => !urls.has(s.url))];
@@ -78,8 +89,16 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   const [aiFilled, setAiFilled] = useState<string[]>(drink?.ai_filled_fields ?? []);
   const [sources, setSources] = useState<Drink["sources"]>(drink?.sources ?? []);
   // データベースに保存済みの状態(新規でも、チャット入力で下書き保存したあとはここに入る)
-  const [record, setRecord] = useState<{ status: Status; image_path: string | null } | null>(
-    drink ? { status: drink.status, image_path: drink.image_path } : null,
+  const [record, setRecord] = useState<SavedState | null>(
+    drink
+      ? {
+          status: drink.status,
+          image_path: drink.image_path,
+          lat: drink.lat,
+          lng: drink.lng,
+          locationKey: locationKey({ address: drink.maker_address, prefecture: drink.prefecture, country: drink.country }),
+        }
+      : null,
   );
   // 「未保存の変更があるか」の比較元
   const [baseline, setBaseline] = useState(() => ({ values: initialValues, sources: drink?.sources ?? [] }));
@@ -240,8 +259,18 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         imagePath = null;
       }
 
+      const base = drinkPayload(kind, snap.values, status);
+
+      // 地図のピン用に、場所が変わったとき(または未取得のとき)だけ緯度経度を調べる(仕様書 §8.5)
+      const place = { address: base.maker_address, prefecture: base.prefecture, country: base.country };
+      const key = locationKey(place);
+      let position = record && record.locationKey === key && record.lat != null ? { lat: record.lat, lng: record.lng } : null;
+      if (!position) position = await geocodeOnClient(place);
+
       const payload = {
-        ...drinkPayload(kind, snap.values, status),
+        ...base,
+        lat: position?.lat ?? null,
+        lng: position?.lng ?? null,
         image_path: imagePath,
         ai_filled_fields: snap.aiFilled,
         sources: snap.sources,
@@ -256,7 +285,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         router.refresh();
       } else {
         // この画面に残るので、保存した状態を「変更なし」の基準にする
-        setRecord({ status, image_path: imagePath });
+        setRecord({ status, image_path: imagePath, lat: payload.lat, lng: payload.lng, locationKey: key });
         setImage({ type: "keep" });
         setBaseline({ values: snap.values, sources: snap.sources });
       }

@@ -3,7 +3,8 @@ import { AccountFooter } from "@/components/AccountFooter";
 import { DrinkIcon } from "@/components/DrinkIcon";
 import { SampleNotice } from "@/components/SampleNotice";
 import { StarDisplay } from "@/components/StarDisplay";
-import { KIND_LABELS, type Kind } from "@/lib/kinds";
+import { MiniMap } from "@/components/map/MiniMap";
+import type { Kind } from "@/lib/kinds";
 import { iconTypeOf } from "@/lib/drink";
 import { SAMPLE_CATEGORY_COUNTS, SAMPLE_DRINKS, SAMPLE_SUMMARY } from "@/lib/sample";
 
@@ -51,13 +52,8 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         </ol>
       </Card>
 
-      <Card
-        title="マップ"
-        action={<span className="text-[13px] text-(--color-text-sub)">タップで全画面(M6で対応)</span>}
-      >
-        <div className="flex h-[180px] items-center justify-center rounded-lg bg-(--color-bg) text-[13px] text-(--color-text-sub)">
-          {KIND_LABELS[kind]}の醸造所の地図がここに出ます
-        </div>
+      <Card title="マップ" action={<span className="text-[13px] text-(--color-text-sub)">タップで全画面</span>}>
+        <MiniMap kind={kind} />
       </Card>
 
       <Card title="カテゴリの内訳">

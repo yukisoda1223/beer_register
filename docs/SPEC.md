@@ -43,7 +43,7 @@
 | スタイル | Tailwind CSS(テーマ色は CSS 変数で切り替え) |
 | フォント | Noto Sans JP(`next/font/google`)。読み込めないときは端末のゴシック体 |
 | 認証・DB・画像保存 | Supabase(Auth: Google、Postgres、Storage) |
-| 地図 | Leaflet + react-leaflet + マーカーのクラスタ表示(leaflet.markercluster 系)、地図タイルは OpenStreetMap |
+| 地図 | Leaflet + マーカーのクラスタ表示(leaflet.markercluster)、地図タイルは OpenStreetMap |
 | 住所→緯度経度 | OpenStreetMap Nominatim(利用規約に従い、1秒1回まで・User-Agent を付ける・結果を保存して使い回す) |
 | グラフ | Recharts |
 | AI | Anthropic 公式 SDK(`@anthropic-ai/sdk`)。Web検索ツールを使う |
@@ -333,6 +333,7 @@ cold=冷酒 / room=常温 / warm=ぬる燗 / hot=熱燗
 
 - ピンチアウト・ピンチインで拡大縮小、ドラッグで移動。
 - 近いピンはまとめて数字付きの丸で表示し、拡大すると分かれる。
+- まとまっていない1件ずつのピンは、登録した写真(なければカテゴリのアイコン)の小さな丸と、その下に小さな字で商品名を出す。
 - ピンをタップすると下からカードが出る(写真・商品名・醸造所・★)。カードをタップで詳細画面。
 - 右下に「全体を表示」ボタン。
 
@@ -504,6 +505,8 @@ cold=冷酒 / room=常温 / warm=ぬる燗 / hot=熱燗
 - Nominatim に問い合わせる(1秒に1回まで、User-Agent を付ける)。
 - 見つからなければ「都道府県」や「国」だけでもう一度探す。それでもなければピンなし。
 - 結果は同じ住所で使い回せるよう、サーバー側で簡単にキャッシュする(テーブル `geocode_cache(address text primary key, lat, lng)` を追加してよい)。
+- (実装メモ)所在地が空でも、都道府県・国があればそれで探す(都道府県・国の中心にピン)。見つからなかったことも geocode_cache に保存して何度も問い合わせない。
+- (実装メモ)地図の画面に、位置がまだない保存済みの記録をまとめて調べる「位置を取得する」ボタンを置く(M6 より前に保存した記録用)。
 
 ---
 
