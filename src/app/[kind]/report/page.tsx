@@ -5,6 +5,8 @@ import { DrinkImage } from "@/components/DrinkImage";
 import { StarDisplay } from "@/components/StarDisplay";
 import { MiniMap } from "@/components/map/MiniMap";
 import { MonthCalendar } from "@/components/report/MonthCalendar";
+import { PrefectureMap } from "@/components/report/PrefectureMap";
+import { TasteMap } from "@/components/report/TasteMap";
 import { YourSummary } from "@/components/report/YourSummary";
 import { iconOf, originLabel } from "@/lib/drink";
 import { IMAGE_BUCKET } from "@/lib/drinks-db";
@@ -24,7 +26,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
   const supabase = await createClient();
   const { data } = await supabase
     .from("drink_records")
-    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, served, peat, created_at")
+    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, served, peat, cask, created_at")
     .eq("kind", kind)
     .eq("status", "saved");
   const records = (data ?? []) as StatRecord[];
@@ -34,6 +36,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
   const { unique, total } = countDrinks(records);
   const favorites = favoritesTop5(records, today);
   const styles = categoryBreakdown(records);
+  const casks = kind === "whisky" ? categoryBreakdown(records.filter((r) => r.cask).map((r) => ({ ...r, category: r.cask }))) : null;
 
   const paths = favorites.flatMap((f) => (f.image_path ? [f.image_path] : []));
   const signed = paths.length ? (await supabase.storage.from(IMAGE_BUCKET).createSignedUrls(paths, 60 * 60)).data : [];
@@ -80,6 +83,10 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         )}
       </Card>
 
+      <TasteMap kind={kind} records={records} />
+
+      {kind === "sake" && <PrefectureMap kind={kind} records={records} />}
+
       <Card title="Map" action={<span className="text-[11px] text-(--color-text-sub)">Tap to expand</span>}>
         <MiniMap kind={kind} />
       </Card>
@@ -91,6 +98,12 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
           <CategoryDonut categories={styles.items} total={styles.total} />
         )}
       </Card>
+
+      {casks && casks.total > 0 && (
+        <Card title="Casks">
+          <CategoryDonut categories={casks.items} total={casks.total} />
+        </Card>
+      )}
 
       <AccountFooter />
     </div>

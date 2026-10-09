@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 const MIN_RATINGS = [3, 3.5, 4, 4.5];
 
 // 一覧・下書き一覧の表。検索・絞り込み・並び替えと、下までスクロールしたら続きを読む
-export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "saved" }) {
+export function DrinkTable({ kind, status, region }: { kind: Kind; status: "draft" | "saved"; region?: string }) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -34,8 +34,8 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
   }, [search]);
 
   const query: ListQuery = useMemo(
-    () => ({ kind, status, search: debouncedSearch, category, minRating, sort }),
-    [kind, status, debouncedSearch, category, minRating, sort],
+    () => ({ kind, status, search: debouncedSearch, category, region, minRating, sort }),
+    [kind, status, debouncedSearch, category, region, minRating, sort],
   );
   const queryKey = JSON.stringify(query);
 
@@ -83,7 +83,7 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
     return () => observer.disconnect();
   }, [hasMore, loading]);
 
-  const filtered = debouncedSearch !== "" || category !== "" || minRating != null;
+  const filtered = debouncedSearch !== "" || category !== "" || !!region || minRating != null;
   const categories = KIND_CONFIG[kind].categories;
   const rowHref = (d: Drink) => (status === "draft" ? `/${kind}/${d.id}/edit` : `/${kind}/${d.id}`);
 
@@ -97,6 +97,19 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
         aria-label="Search"
         className="min-h-10 w-full rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px]"
       />
+      {region && (
+        <div className="flex items-center gap-2 text-[12px]">
+          <span className="text-(--color-text-sub)">Region</span>
+          <Link
+            href={`/${kind}/list`}
+            aria-label={`Clear region filter ${region}`}
+            className="flex min-h-8 items-center gap-1.5 rounded-full bg-(--color-primary-soft) px-3 text-(--color-accent-text)"
+          >
+            {region}
+            <span aria-hidden>×</span>
+          </Link>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-2 text-[12px]">
         <select
           aria-label="Filter by style"

@@ -17,6 +17,10 @@
 >   種類ごとの項目は `src/lib/kind-config.ts`: 日本酒 = 甘口〜辛口・香りの強さ(淡麗〜濃醇は廃止)・飲み方(冷酒/常温/ぬる燗/熱燗)、Whisky = Type・熟成年数・樽・ピート・ボディ・スモーキー(★)・飲み方(Neat/Rocks/With water/Highball/Cocktail)、Cider = Style・原料・甘口〜辛口、Wine = Type・ブドウ・ヴィンテージ・甘口〜辛口・ボディ。
 >   保存時に Style(種類)が必須なのはビールだけ。マイグレーション: `supabase/migrations/20261010000000_more_kinds.sql`。
 > - **AI の文章(Your Summary・メモ・価格の補足など)は日本語**。使う人は日本人の想定。
+> - **種類ごとのレポート**(`src/lib/taste-map.ts`・`src/lib/prefectures.ts`)
+>   - Taste Map: 日本酒 = 甘口〜辛口 × 香りの強さ、Wine = 甘口〜辛口 × ボディ、Whisky = ボディ × スモーキー。1銘柄1点(記録の平均)、点の大きさ = 評価、点をタップで詳細。各銘柄が (評価 − 3) の重みで周りを塗り、評価の高い銘柄の近くほど濃い。上に好みの一文(日本語・集計から作る。★4以上が2つ以上で表示)。
+>   - Cider: 甘口〜辛口の5段階ごとの銘柄数(棒の濃さ = 平均評価)と一文。Whisky は Casks の円グラフも出す。
+>   - 日本酒の Prefectures: 「n / 47」と、47マスの日本地図(飲んだ銘柄の数で 1 / 2 / 3–4 / 5+ の濃さ)。マスをタップで `/{kind}/list?region=…` の一覧。
 > - あとの段階で行うことは `docs/BACKLOG.md` を参照。
 
 ---

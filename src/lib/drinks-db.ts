@@ -12,6 +12,8 @@ export type ListQuery = {
   status: "draft" | "saved";
   search: string;
   category: string;
+  // 地域(都道府県マップから開いたとき)。空なら絞り込まない
+  region?: string;
   minRating: number | null;
   sort: "date" | "rating";
 };
@@ -27,6 +29,7 @@ export async function fetchDrinkPage(supabase: SupabaseClient, q: ListQuery, pag
   const search = sanitizeSearch(q.search);
   if (search) query = query.or(`name.ilike.%${search}%,maker.ilike.%${search}%`);
   if (q.category) query = query.eq("category", q.category);
+  if (q.region) query = query.eq("region", q.region);
   if (q.minRating != null) query = query.gte("rating", q.minRating);
 
   query =

@@ -32,6 +32,7 @@ function rec(o: Partial<StatRecord>): StatRecord {
     smoky: null,
     served: null,
     peat: null,
+    cask: null,
     created_at: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`,
     ...o,
   };

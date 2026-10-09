@@ -5,7 +5,7 @@ import type { Kind } from "@/lib/kinds";
 export type StatRecord = Pick<
   Drink,
   | "id" | "product_id" | "status" | "drunk_on" | "name" | "category" | "beer_family" | "kind" | "rating"
-  | "image_path" | "region" | "country" | "sweet_dry" | "aroma_level" | "body" | "smoky" | "served" | "peat" | "created_at"
+  | "image_path" | "region" | "country" | "sweet_dry" | "aroma_level" | "body" | "smoky" | "served" | "peat" | "cask" | "created_at"
 >;
 
 function saved<T extends Pick<StatRecord, "status">>(records: T[]) {
