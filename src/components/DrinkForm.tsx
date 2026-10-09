@@ -4,12 +4,16 @@ import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ImagePicker } from "@/components/ImagePicker";
+import { QuickInputSheet } from "@/components/QuickInputSheet";
 import { ResearchButton } from "@/components/ResearchButton";
 import { Slider5 } from "@/components/Slider5";
 import { StarRating } from "@/components/StarRating";
 import { useRegisterLeaveGuard } from "@/components/UnsavedChanges";
+import { applyQuickInput } from "@/lib/ai/apply-quick-input";
 import { applyCandidate } from "@/lib/ai/apply-research";
-import type { ResearchCandidate } from "@/lib/ai/research-schema";
+import { postAi } from "@/lib/ai/fetch-client";
+import type { QuickInput } from "@/lib/ai/quick-input-schema";
+import type { ResearchCandidate, ResearchResult } from "@/lib/ai/research-schema";
 import { iconTypeOf, type Drink } from "@/lib/drink";
 import {
   drinkPayload,
@@ -44,6 +48,16 @@ type ImageState =
 
 type Status = "draft" | "saved";
 
+// フォームの中身のうち、保存するもの一式
+type Snapshot = { values: DrinkFormValues; aiFilled: string[]; sources: Drink["sources"] };
+
+type ResearchResponse = ResearchResult & { cached: boolean };
+
+function mergeSources(prev: Drink["sources"], add: Drink["sources"]) {
+  const urls = new Set(prev.map((s) => s.url));
+  return [...prev, ...add.filter((s) => !urls.has(s.url))];
+}
+
 // エラーがあったとき、画面の上から順に最初の欄へスクロールする
 const FIELD_ORDER: DrinkFormField[] = [
   "name", "category", "drunk_on", "abv", "polish_ratio", "sake_meter", "acidity", "price_yen", "rating",
@@ -63,13 +77,23 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   // AIが埋めた項目(「AI」バッジを出す)と、AIが参考にしたページ
   const [aiFilled, setAiFilled] = useState<string[]>(drink?.ai_filled_fields ?? []);
   const [sources, setSources] = useState<Drink["sources"]>(drink?.sources ?? []);
+  // データベースに保存済みの状態(新規でも、チャット入力で下書き保存したあとはここに入る)
+  const [record, setRecord] = useState<{ status: Status; image_path: string | null } | null>(
+    drink ? { status: drink.status, image_path: drink.image_path } : null,
+  );
+  // 「未保存の変更があるか」の比較元
+  const [baseline, setBaseline] = useState(() => ({ values: initialValues, sources: drink?.sources ?? [] }));
+  // AI の処理中(quick=文章の読み取り、research=名前から調査)と、その結果のお知らせ
+  const [aiBusy, setAiBusy] = useState<"quick" | "research" | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [choices, setChoices] = useState<ResearchResult | null>(null);
 
   const id = drink?.id ?? newId;
-  const isSavedRecord = drink?.status === "saved";
+  const isSavedRecord = record?.status === "saved";
   const dirty =
-    JSON.stringify(values) !== JSON.stringify(initialValues) ||
+    JSON.stringify(values) !== JSON.stringify(baseline.values) ||
     image.type !== "keep" ||
-    JSON.stringify(sources) !== JSON.stringify(drink?.sources ?? []);
+    JSON.stringify(sources) !== JSON.stringify(baseline.sources);
 
   // 写真のプレビュー用URLは使い終わったら片付ける
   useEffect(() => {
@@ -84,16 +108,91 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     setAiFilled((f) => (f.includes(field) ? f.filter((x) => x !== field) : f));
   }
 
-  function handleResearch(candidate: ResearchCandidate) {
-    const result = applyCandidate(kind, values, aiFilled, candidate);
-    setValues(result.values);
-    setAiFilled(result.aiFilled);
+  function snapshot(): Snapshot {
+    return { values, aiFilled, sources };
+  }
+
+  function withCandidate(snap: Snapshot, candidate: ResearchCandidate): Snapshot {
+    const r = applyCandidate(kind, snap.values, snap.aiFilled, candidate);
+    return { values: r.values, aiFilled: r.aiFilled, sources: mergeSources(snap.sources, candidate.sources) };
+  }
+
+  function show(snap: Snapshot) {
+    setValues(snap.values);
+    setAiFilled(snap.aiFilled);
+    setSources(snap.sources);
     setErrors({});
-    if (candidate.sources.length > 0) {
-      setSources((prev) => {
-        const urls = new Set(prev.map((s) => s.url));
-        return [...prev, ...candidate.sources.filter((s) => !urls.has(s.url))];
-      });
+  }
+
+  // 名前からAIで調べる(仕様書 §8.2)。候補が1つならそのまま反映、複数なら選んでもらう
+  async function research(snap: Snapshot): Promise<Snapshot> {
+    setAiBusy("research");
+    const result = await postAi<ResearchResponse>("/api/research", { kind, name: snap.values.name });
+    if (result.candidates.length === 0) {
+      setMessage("見つかりませんでした。名前を変えて試すか、手入力でお願いします。");
+      return snap;
+    }
+    if (result.candidates.length > 1) {
+      setChoices(result);
+      return snap;
+    }
+    setInfo(result.cached ? "前に調べた結果を入れました。" : "AIが調べた値を空いている欄に入れました。");
+    return withCandidate(snap, result.candidates[0]);
+  }
+
+  async function handleResearchClick() {
+    if (!values.name.trim()) {
+      setMessage("先に商品名を入れてください。");
+      return;
+    }
+    setMessage(null);
+    setInfo(null);
+    try {
+      show(await research(snapshot()));
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  function handlePickCandidate(candidate: ResearchCandidate) {
+    show(withCandidate(snapshot(), candidate));
+    setChoices(null);
+    setInfo("AIが調べた値を空いている欄に入れました。");
+  }
+
+  // チャットで入力(仕様書 §8.4): 文章を項目に分け、名前から調べ、新しい記録なら下書きとして保存する
+  async function handleQuickInput(text: string): Promise<boolean> {
+    setMessage(null);
+    setInfo(null);
+    setAiBusy("quick");
+    try {
+      const parsed = await postAi<QuickInput>("/api/quick-input", { kind, text });
+      const q = applyQuickInput(values, aiFilled, parsed);
+      let snap: Snapshot = { values: q.values, aiFilled: q.aiFilled, sources };
+      show(snap);
+      if (snap.values.name.trim()) {
+        try {
+          snap = await research(snap);
+          show(snap);
+        } catch (e) {
+          setMessage(`読み取りはできましたが、名前からの調査に失敗しました: ${(e as Error).message}`);
+        }
+      }
+      if (!snap.values.name.trim()) {
+        setInfo("商品名が読み取れませんでした。商品名を入れてから保存してください。");
+      } else if (!isSavedRecord && (await persist("draft", false, snap))) {
+        setInfo("下書きに保存しました。内容を確認して「保存」を押してください。");
+      } else if (isSavedRecord) {
+        setInfo("読み取った内容を入れました。確認して「保存」を押してください。");
+      }
+      return true;
+    } catch (e) {
+      setMessage((e as Error).message);
+      return false;
+    } finally {
+      setAiBusy(null);
     }
   }
 
@@ -107,9 +206,9 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     }
   }
 
-  // 保存の本体。navigate=false のときは画面を移動しない(戻るボタンの確認から呼ぶとき)
-  async function persist(status: Status, navigate: boolean): Promise<boolean> {
-    const found = validateDrinkForm(kind, values, status);
+  // 保存の本体。navigate=false のときは画面を移動しない(戻るボタンの確認・チャット入力から呼ぶとき)
+  async function persist(status: Status, navigate: boolean, snap: Snapshot = snapshot()): Promise<boolean> {
+    const found = validateDrinkForm(kind, snap.values, status);
     setErrors(found);
     const first = FIELD_ORDER.find((f) => found[f]);
     if (first) {
@@ -127,7 +226,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
       const userId = auth?.claims.sub;
       if (!userId) throw new Error("not logged in");
 
-      let imagePath = drink?.image_path ?? null;
+      let imagePath = record?.image_path ?? null;
       if (image.type === "new") {
         const path = `${userId}/${id}.${extensionOf(image.blob)}`;
         const { error } = await supabase.storage
@@ -142,12 +241,12 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
       }
 
       const payload = {
-        ...drinkPayload(kind, values, status),
+        ...drinkPayload(kind, snap.values, status),
         image_path: imagePath,
-        ai_filled_fields: aiFilled,
-        sources,
+        ai_filled_fields: snap.aiFilled,
+        sources: snap.sources,
       };
-      const { error } = drink
+      const { error } = record
         ? await supabase.from("drinks").update(payload).eq("id", id)
         : await supabase.from("drinks").insert({ id, ...payload });
       if (error) throw error;
@@ -155,6 +254,11 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
       if (navigate) {
         router.push(status === "saved" ? `/${kind}/list?done=saved` : `/${kind}/drafts?done=draft`);
         router.refresh();
+      } else {
+        // この画面に残るので、保存した状態を「変更なし」の基準にする
+        setRecord({ status, image_path: imagePath });
+        setImage({ type: "keep" });
+        setBaseline({ values: snap.values, sources: snap.sources });
       }
       return true;
     } catch {
@@ -166,11 +270,11 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   }
 
   async function handleDeleteDraft() {
-    if (!drink) return;
+    if (!record) return;
     setConfirmDelete(false);
     setSaving("delete");
     try {
-      await deleteDrink(createClient(), drink.id, drink.image_path);
+      await deleteDrink(createClient(), id, record.image_path);
       router.push(`/${kind}/drafts?done=deleted`);
       router.refresh();
     } catch {
@@ -191,13 +295,16 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
 
   const previewUrl = image.type === "new" ? image.previewUrl : image.type === "remove" ? null : (imageUrl ?? null);
   const icon = iconTypeOf({ kind, beer_family: beerFamilyOf(values.category) });
-  const busy = saving != null;
+  const busy = saving != null || aiBusy != null;
   const makerLabel = kind === "beer" ? "醸造所" : "酒蔵";
 
   return (
     <AiFilledContext.Provider value={aiFilled}>
     <form className="flex flex-col gap-5" onSubmit={(e) => (e.preventDefault(), persist("saved", true))} noValidate>
-      <h1 className="sr-only">{drink ? "記録を編集" : "記録する"}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">{drink ? "記録を編集" : "記録する"}</h1>
+        <QuickInputSheet kind={kind} busy={aiBusy} onSubmit={handleQuickInput} />
+      </div>
 
       {/* 1〜2. 写真と商品名 */}
       <div className="flex items-start gap-4">
@@ -205,7 +312,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           url={previewUrl}
           icon={icon}
           onPick={handlePick}
-          onRemove={() => setImage(drink?.image_path ? { type: "remove" } : { type: "keep" })}
+          onRemove={() => setImage(record?.image_path ? { type: "remove" } : { type: "keep" })}
         />
         <Field label="商品名" field="name" error={errors.name} required className="flex-1">
           <textarea
@@ -216,7 +323,8 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
             placeholder={kind === "beer" ? "例: ○○ペールエール" : "例: ○○ 純米吟醸"}
             className={inputClass(errors.name)}
           />
-          <ResearchButton kind={kind} name={values.name} onPick={handleResearch} onError={setMessage} />
+          <ResearchButton loading={aiBusy === "research"} disabled={busy} onClick={handleResearchClick} />
+          {info && <p className="text-[13px] text-(--color-text-sub)">{info}</p>}
         </Field>
       </div>
 
@@ -428,7 +536,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         </button>
       </div>
 
-      {drink && !isSavedRecord && (
+      {record && !isSavedRecord && (
         <button
           type="button"
           disabled={busy}
@@ -438,6 +546,20 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           {saving === "delete" ? "削除しています…" : "この下書きを削除"}
         </button>
       )}
+
+      <ConfirmDialog
+        open={choices != null}
+        title="どの商品ですか?"
+        message={choices?.note ?? "同じ名前の商品がいくつか見つかりました。"}
+        onClose={() => setChoices(null)}
+        actions={[
+          ...(choices?.candidates ?? []).map((c, i) => ({
+            label: `${i + 1}. ${c.name}${c.maker ? `(${c.maker})` : ""}`,
+            onClick: () => handlePickCandidate(c),
+          })),
+          { label: "キャンセル", onClick: () => setChoices(null) },
+        ]}
+      />
 
       <ConfirmDialog
         open={confirmDelete}
