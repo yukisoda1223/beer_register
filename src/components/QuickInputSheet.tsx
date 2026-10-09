@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Kind } from "@/lib/kinds";
 
 const EXAMPLES: Record<Kind, string> = {
-  beer: "e.g. Hazy Morning IPA ★4, quite bitter, great with fried chicken",
-  sake: "e.g. Tsukimigawa Junmai Ginjo ★4.5, crisp and dry, chilled with sashimi",
+  beer: "例: よなよなエール ★4 苦め、唐揚げと合う",
+  sake: "例: 獺祭 純米大吟醸 ★4.5 すっきり辛口、香りは華やか、冷酒で刺身と",
+  whisky: "例: 山崎12年 ★4.5 ロック、ほんのりスモーキー",
+  cider: "例: ニッカ シードル ★3.5 甘め、さっぱり",
+  wine: "例: 椀子 メルロー 2019 ★4 フルボディで辛口、ステーキと",
 };
 
 // 「Quick note」(チャットで入力、仕様書 §8.4)。下から出るシートに一文を書いて送る
@@ -61,7 +64,7 @@ export function QuickInputSheet({
         <h2 id="quick-title" className="text-[15px] font-medium">
           Quick note
         </h2>
-        <p className="mt-1 text-[13px] text-(--color-text-sub)">Write the name and how it was. AI fills in the form.</p>
+        <p className="mt-1 text-[13px] text-(--color-text-sub)">名前と感想を一文で書くと、AIが項目に分けて入れます。</p>
         <textarea
           rows={3}
           value={text}

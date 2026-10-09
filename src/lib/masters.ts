@@ -1,5 +1,6 @@
 // 選択肢マスタ(仕様書 §6)。画面・データとも英語
-import type { BeerFamily, ServingTemp } from "@/lib/drink";
+import type { BeerFamily, Peat, Served } from "@/lib/drink";
+import type { Kind } from "@/lib/kinds";
 
 // 6.1 ビールのスタイルと系統。color はアイコンのビールの色(写真がないとき)
 export const BEER_CATEGORIES: { label: string; family: BeerFamily; color: string }[] = [
@@ -65,18 +66,51 @@ export const SAKE_CATEGORIES = [
   "Other",
 ];
 
-// 6.3 飲んだ温度(日本酒)
-export const SERVING_TEMPS: { value: ServingTemp; label: string }[] = [
-  { value: "cold", label: "Chilled" },
-  { value: "room", label: "Room" },
-  { value: "warm", label: "Warm" },
-  { value: "hot", label: "Hot" },
+// 6.3 飲み方。日本酒は温度(表示は日本語)、ウイスキーは飲み方
+export const SERVED_OPTIONS: Partial<Record<Kind, { value: Served; label: string }[]>> = {
+  sake: [
+    { value: "cold", label: "冷酒" },
+    { value: "room", label: "常温" },
+    { value: "warm", label: "ぬる燗" },
+    { value: "hot", label: "熱燗" },
+  ],
+  whisky: [
+    { value: "neat", label: "Neat" },
+    { value: "rocks", label: "Rocks" },
+    { value: "water", label: "With water" },
+    { value: "highball", label: "Highball" },
+    { value: "cocktail", label: "Cocktail" },
+  ],
+};
+
+export function servedLabel(kind: Kind, value: Served | null): string | null {
+  if (!value) return null;
+  return SERVED_OPTIONS[kind]?.find((o) => o.value === value)?.label ?? value;
+}
+
+// ウイスキー
+export const WHISKY_TYPES = ["Single Malt", "Blended Malt", "Blended", "Single Grain", "Bourbon", "Rye", "Pot Still", "Other"];
+export const CASKS = ["Bourbon", "Sherry", "Wine", "Port", "Mizunara", "Mixed", "Other"];
+export const PEAT_LEVELS: { value: Peat; label: string; color: string }[] = [
+  { value: "none", label: "None", color: "#D9A048" },
+  { value: "light", label: "Light", color: "#C0802F" },
+  { value: "medium", label: "Medium", color: "#9B5E24" },
+  { value: "heavy", label: "Heavy", color: "#6E3F1A" },
 ];
 
-export const SERVING_TEMP_LABELS = Object.fromEntries(SERVING_TEMPS.map((t) => [t.value, t.label])) as Record<
-  ServingTemp,
-  string
->;
+// シードル
+export const CIDER_STYLES = ["Modern", "Traditional", "Perry", "Rosé", "Fruit", "Hopped", "Ice Cider", "Other"];
+
+// ワイン(color はアイコンのワインの色)
+export const WINE_TYPES: { label: string; color: string }[] = [
+  { label: "Red", color: "#6E1F2E" },
+  { label: "White", color: "#E9D27A" },
+  { label: "Rosé", color: "#E59AA4" },
+  { label: "Sparkling", color: "#EEDC8E" },
+  { label: "Orange", color: "#E09A4A" },
+  { label: "Dessert", color: "#D9A02B" },
+  { label: "Fortified", color: "#7A2E1E" },
+];
 
 // 6.4 都道府県(北から順、英語。産地の「地域」と制覇率で使う)
 export const PREFECTURES = [

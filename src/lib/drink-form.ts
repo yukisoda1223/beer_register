@@ -1,8 +1,9 @@
 // 記録フォームの値 ⇔ データベースの行 の変換と、入力チェック
-import { beerFamilyOf } from "@/lib/masters";
-import { normalizeName } from "@/lib/normalize";
-import type { Drink, ServingTemp } from "@/lib/drink";
+import type { Drink, Peat, Served } from "@/lib/drink";
+import { KIND_CONFIG, type NumberProductField } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
+import { SERVED_OPTIONS, beerFamilyOf } from "@/lib/masters";
+import { normalizeName } from "@/lib/normalize";
 
 // フォームの入力欄の値。文字の欄は "" が未入力、評価などは null が未入力
 export type DrinkFormValues = {
@@ -17,17 +18,24 @@ export type DrinkFormValues = {
   country: string;
   region: string;
   rating: number | null;
-  bitterness: number | null;
   aroma: number | null;
   comment: string;
-  // 日本酒のみ
+  // 種類ごとの銘柄の情報
   polish_ratio: string;
   sake_meter: string;
   acidity: string;
-  rice: string;
+  ingredient: string;
+  age_years: string;
+  cask: string;
+  peat: Peat | null;
+  vintage: string;
+  // 種類ごとの、飲んだ回の評価
+  bitterness: number | null;
+  smoky: number | null;
   sweet_dry: number | null;
-  light_rich: number | null;
-  serving_temp: ServingTemp | null;
+  aroma_level: number | null;
+  body: number | null;
+  served: Served | null;
 };
 
 export type DrinkFormField = keyof DrinkFormValues;
@@ -54,16 +62,22 @@ export function emptyFormValues(kind: Kind, today = todayISO()): DrinkFormValues
     country: kind === "sake" ? "Japan" : "",
     region: "",
     rating: null,
-    bitterness: null,
     aroma: null,
     comment: "",
     polish_ratio: "",
     sake_meter: "",
     acidity: "",
-    rice: "",
+    ingredient: "",
+    age_years: "",
+    cask: "",
+    peat: null,
+    vintage: "",
+    bitterness: null,
+    smoky: null,
     sweet_dry: null,
-    light_rich: null,
-    serving_temp: null,
+    aroma_level: null,
+    body: null,
+    served: null,
   };
 }
 
@@ -82,16 +96,22 @@ export function formValuesFromDrink(d: Drink): DrinkFormValues {
     country: str(d.country),
     region: str(d.region),
     rating: d.rating,
-    bitterness: d.bitterness,
     aroma: d.aroma,
     comment: str(d.comment),
     polish_ratio: str(d.polish_ratio),
     sake_meter: str(d.sake_meter),
     acidity: str(d.acidity),
-    rice: str(d.rice),
+    ingredient: str(d.ingredient),
+    age_years: str(d.age_years),
+    cask: str(d.cask),
+    peat: d.peat,
+    vintage: str(d.vintage),
+    bitterness: d.bitterness,
+    smoky: d.smoky,
     sweet_dry: d.sweet_dry,
-    light_rich: d.light_rich,
-    serving_temp: d.serving_temp,
+    aroma_level: d.aroma_level,
+    body: d.body,
+    served: d.served,
   };
 }
 
@@ -108,30 +128,31 @@ export function parseNumber(text: string): number | null {
 
 type NumberRule = { field: DrinkFormField; min: number; max: number; integer?: boolean; label: string };
 
-const NUMBER_RULES: Record<Kind, NumberRule[]> = {
-  beer: [
-    { field: "abv", min: 0, max: 99.9, label: "ABV" },
-    { field: "price_yen", min: 0, max: 10_000_000, integer: true, label: "Price" },
-  ],
-  sake: [
-    { field: "abv", min: 0, max: 99.9, label: "ABV" },
-    { field: "price_yen", min: 0, max: 10_000_000, integer: true, label: "Price" },
-    { field: "polish_ratio", min: 1, max: 100, integer: true, label: "Polishing ratio" },
-    { field: "sake_meter", min: -999, max: 999, label: "SMV" },
-    { field: "acidity", min: 0, max: 99, label: "Acidity" },
-  ],
+const COMMON_RULES: NumberRule[] = [
+  { field: "abv", min: 0, max: 99.9, label: "ABV" },
+  { field: "price_yen", min: 0, max: 10_000_000, integer: true, label: "Price" },
+];
+
+const PRODUCT_RULES: Record<NumberProductField, Omit<NumberRule, "label">> = {
+  polish_ratio: { field: "polish_ratio", min: 1, max: 100, integer: true },
+  sake_meter: { field: "sake_meter", min: -999, max: 999 },
+  acidity: { field: "acidity", min: 0, max: 99 },
+  age_years: { field: "age_years", min: 0, max: 100, integer: true },
+  vintage: { field: "vintage", min: 1800, max: 2200, integer: true },
 };
 
-// 入力チェック。保存は必須項目(商品名・日付・総合評価・カテゴリ)が必要。下書きは商品名だけでよい
+// 入力チェック。保存は商品名・日付・総合評価が必要(スタイルはビールだけ必須)。下書きは商品名だけでよい
 export function validateDrinkForm(kind: Kind, v: DrinkFormValues, status: "draft" | "saved"): DrinkFormErrors {
+  const config = KIND_CONFIG[kind];
   const errors: DrinkFormErrors = {};
   if (!v.name.trim()) errors.name = "Enter a name";
   if (status === "saved") {
-    if (!v.category) errors.category = kind === "beer" ? "Choose a style" : "Choose a grade";
+    if (config.categoryRequired && !v.category) errors.category = `Choose a ${config.categoryLabel.toLowerCase()}`;
     if (!v.drunk_on) errors.drunk_on = "Enter a date";
     if (v.rating == null) errors.rating = "Add a rating";
   }
-  for (const rule of NUMBER_RULES[kind]) {
+  const rules = [...COMMON_RULES, ...config.numbers.map((n) => ({ ...PRODUCT_RULES[n.field], label: n.label }))];
+  for (const rule of rules) {
     const n = parseNumber(v[rule.field] as string);
     if (n == null) continue;
     if (Number.isNaN(n) || n < rule.min || n > rule.max || (rule.integer && !Number.isInteger(n))) {
@@ -147,9 +168,15 @@ const num = (v: string) => {
   return n == null || Number.isNaN(n) ? null : n;
 };
 
-// データベースに保存する形にする。銘柄(products)と飲んだ記録(tastings)に分ける
+// データベースに保存する形にする。銘柄(products)と飲んだ記録(tastings)に分け、
+// その種類で使わない項目は null にする
 export function drinkPayload(kind: Kind, v: DrinkFormValues, status: "draft" | "saved") {
-  const isBeer = kind === "beer";
+  const c = KIND_CONFIG[kind];
+  const hasNumber = (f: NumberProductField) => c.numbers.some((n) => n.field === f);
+  const hasScale = (f: string) => c.scales.some((s) => s.field === f);
+  const hasStar = (f: string) => c.stars.some((s) => s.field === f);
+  const servedOk = SERVED_OPTIONS[kind]?.some((o) => o.value === v.served) ?? false;
+
   const product = {
     kind,
     name: v.name.trim(),
@@ -162,11 +189,15 @@ export function drinkPayload(kind: Kind, v: DrinkFormValues, status: "draft" | "
     maker_address: text(v.maker_address),
     country: text(v.country),
     region: text(v.region),
-    beer_family: isBeer ? beerFamilyOf(v.category) : null,
-    polish_ratio: isBeer ? null : num(v.polish_ratio),
-    sake_meter: isBeer ? null : num(v.sake_meter),
-    acidity: isBeer ? null : num(v.acidity),
-    rice: isBeer ? null : text(v.rice),
+    beer_family: kind === "beer" ? beerFamilyOf(v.category) : null,
+    polish_ratio: hasNumber("polish_ratio") ? num(v.polish_ratio) : null,
+    sake_meter: hasNumber("sake_meter") ? num(v.sake_meter) : null,
+    acidity: hasNumber("acidity") ? num(v.acidity) : null,
+    age_years: hasNumber("age_years") ? num(v.age_years) : null,
+    vintage: hasNumber("vintage") ? num(v.vintage) : null,
+    ingredient: c.ingredient ? text(v.ingredient) : null,
+    cask: c.cask ? text(v.cask) : null,
+    peat: c.peat ? v.peat : null,
   };
   const tasting = {
     status,
@@ -174,10 +205,12 @@ export function drinkPayload(kind: Kind, v: DrinkFormValues, status: "draft" | "
     rating: v.rating,
     aroma: v.aroma,
     comment: text(v.comment),
-    bitterness: isBeer ? v.bitterness : null,
-    sweet_dry: isBeer ? null : v.sweet_dry,
-    light_rich: isBeer ? null : v.light_rich,
-    serving_temp: isBeer ? null : v.serving_temp,
+    bitterness: hasStar("bitterness") ? v.bitterness : null,
+    smoky: hasStar("smoky") ? v.smoky : null,
+    sweet_dry: hasScale("sweet_dry") ? v.sweet_dry : null,
+    aroma_level: hasScale("aroma_level") ? v.aroma_level : null,
+    body: hasScale("body") ? v.body : null,
+    served: servedOk ? v.served : null,
   };
   return { product, tasting };
 }

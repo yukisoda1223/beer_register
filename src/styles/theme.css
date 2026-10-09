@@ -48,3 +48,48 @@
   --chart-5: #a3b3a6;
   --chart-6: #c9bfae;
 }
+
+[data-theme="whisky"] {
+  --color-primary: #98633d;
+  --color-primary-soft: #ead9c9;
+  --color-secondary: #b57b4c;
+  --color-on-primary: #ffffff;
+  --color-accent-text: #7d4f2e;
+
+  --chart-1: #98633d;
+  --chart-2: #c4925d;
+  --chart-3: #6b4226;
+  --chart-4: #dcb88f;
+  --chart-5: #a88a6c;
+  --chart-6: #cbbfae;
+}
+
+[data-theme="cider"] {
+  --color-primary: #b95759;
+  --color-primary-soft: #f1d7d6;
+  --color-secondary: #c96b6d;
+  --color-on-primary: #ffffff;
+  --color-accent-text: #9c3f42;
+
+  --chart-1: #b95759;
+  --chart-2: #e09b86;
+  --chart-3: #8a3a3c;
+  --chart-4: #e8c15a;
+  --chart-5: #c9a39a;
+  --chart-6: #d6cbbd;
+}
+
+[data-theme="wine"] {
+  --color-primary: #6e2b3f;
+  --color-primary-soft: #e6d2d8;
+  --color-secondary: #9c4a62;
+  --color-on-primary: #ffffff;
+  --color-accent-text: #6e2b3f;
+
+  --chart-1: #6e2b3f;
+  --chart-2: #a9566e;
+  --chart-3: #d79aa9;
+  --chart-4: #e9d27a;
+  --chart-5: #4a1d2b;
+  --chart-6: #cbbcae;
+}

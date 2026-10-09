@@ -27,8 +27,11 @@ function rec(o: Partial<StatRecord>): StatRecord {
     region: null,
     country: "Japan",
     sweet_dry: null,
-    light_rich: null,
-    serving_temp: null,
+    aroma_level: null,
+    body: null,
+    smoky: null,
+    served: null,
+    peat: null,
     created_at: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`,
     ...o,
   };
@@ -108,13 +111,19 @@ describe("summaryInput", () => {
     expect((s.last_12_months as { month: string }[]).at(-1)).toEqual({ month: "2026-10", tastings: 2, top_category: "IPA" });
     expect(s.families).toEqual({ ale: 2, lager: 1 });
   });
-  it("日本酒は甘辛・濃淡の平均と温度別の平均★", () => {
+  it("日本酒は甘辛・香りの強さの平均と温度別の平均★", () => {
     const rs = [
-      rec({ kind: "sake", sweet_dry: 4, light_rich: 2, serving_temp: "cold", rating: 5 }),
-      rec({ kind: "sake", sweet_dry: 3, light_rich: 3, serving_temp: "cold", rating: 4 }),
+      rec({ kind: "sake", sweet_dry: 4, aroma_level: 2, served: "cold", rating: 5 }),
+      rec({ kind: "sake", sweet_dry: 3, aroma_level: 3, served: "cold", rating: 4 }),
     ];
     const s = summaryInput("sake", rs, "2026-10-09") as Record<string, unknown>;
     expect(s.avg_sweet_dry).toBe(3.5);
-    expect((s.avg_rating_by_serving_temp as Record<string, number | null>).cold).toBe(4.5);
+    expect(s.avg_aroma_intensity).toBe(2.5);
+    expect((s.avg_rating_by_served as Record<string, number | null>).cold).toBe(4.5);
+  });
+  it("ウイスキーはボディとスモーキーの平均", () => {
+    const rs = [rec({ kind: "whisky", body: 4, smoky: 5 }), rec({ kind: "whisky", body: 2, smoky: 3 })];
+    const s = summaryInput("whisky", rs, "2026-10-09") as Record<string, unknown>;
+    expect(s).toMatchObject({ avg_body: 3, avg_smoky: 4 });
   });
 });

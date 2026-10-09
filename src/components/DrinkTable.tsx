@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DrinkImage } from "@/components/DrinkImage";
 import { formatDateShort, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { PAGE_SIZE, errorMessage, fetchDrinkPage, signedImageUrls, type ListQuery } from "@/lib/drinks-db";
+import { KIND_CONFIG } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
-import { BEER_CATEGORIES, SAKE_CATEGORIES } from "@/lib/masters";
 import { createClient } from "@/lib/supabase/client";
 
 const MIN_RATINGS = [3, 3.5, 4, 4.5];
@@ -84,7 +84,7 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
   }, [hasMore, loading]);
 
   const filtered = debouncedSearch !== "" || category !== "" || minRating != null;
-  const categories = kind === "beer" ? BEER_CATEGORIES.map((c) => c.label) : SAKE_CATEGORIES;
+  const categories = KIND_CONFIG[kind].categories;
   const rowHref = (d: Drink) => (status === "draft" ? `/${kind}/${d.id}/edit` : `/${kind}/${d.id}`);
 
   return (
@@ -93,7 +93,7 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
         type="search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search name or brewery"
+        placeholder={`Search name or ${KIND_CONFIG[kind].makerLabel.toLowerCase()}`}
         aria-label="Search"
         className="min-h-10 w-full rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px]"
       />
@@ -104,7 +104,7 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
           onChange={(e) => setCategory(e.target.value)}
           className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-3"
         >
-          <option value="">{kind === "beer" ? "All styles" : "All grades"}</option>
+          <option value="">All {KIND_CONFIG[kind].categoryLabel.toLowerCase()}s</option>
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}

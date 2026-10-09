@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const { supabase, userId } = await requireUser();
     const { data: records, error } = await supabase
       .from("drink_records")
-      .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, light_rich, serving_temp, created_at")
+      .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, served, peat, created_at")
       .eq("kind", kind)
       .eq("status", "saved");
     if (error) throw error;

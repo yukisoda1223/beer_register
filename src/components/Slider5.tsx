@@ -17,7 +17,7 @@ export function Slider5({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-3">
-        <span className="w-10 shrink-0 text-[12px] text-(--color-text-sub)">{left}</span>
+        <span className="min-w-10 shrink-0 text-[12px] text-(--color-text-sub)">{left}</span>
         <input
           type="range"
           min={1}
@@ -30,7 +30,7 @@ export function Slider5({
           onPointerDown={() => value == null && onChange(3)}
           className={`h-11 flex-1 accent-(--color-primary) ${value == null ? "opacity-40" : ""}`}
         />
-        <span className="w-10 shrink-0 text-right text-[12px] text-(--color-text-sub)">{right}</span>
+        <span className="min-w-10 shrink-0 text-right text-[12px] text-(--color-text-sub)">{right}</span>
       </div>
       <div className="flex justify-between px-12 text-[11px] text-(--color-text-sub)">
         <span>{value == null ? "Not set" : `${value} / 5`}</span>

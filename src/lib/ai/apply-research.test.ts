@@ -49,11 +49,17 @@ describe("applyCandidate", () => {
   });
 
   it("日本酒の項目も埋める(国は初期値の Japan のまま)", () => {
-    const sake = { ...candidate, category: "Junmai Ginjo", polish_ratio: 55, sake_meter: -2, acidity: 1.4, rice: "Yamada Nishiki" };
+    const sake = { ...candidate, category: "Junmai Ginjo", polish_ratio: 55, sake_meter: -2, acidity: 1.4, ingredient: "Yamada Nishiki" };
     const r = applyCandidate("sake", { ...emptyFormValues("sake"), name: "x" }, ["maker"], sake);
     expect(r.values.sake_meter).toBe("-2");
-    expect(r.values.rice).toBe("Yamada Nishiki");
+    expect(r.values.ingredient).toBe("Yamada Nishiki");
     expect(r.aiFilled).toContain("polish_ratio");
     expect(r.aiFilled).not.toContain("country");
+  });
+
+  it("ウイスキーの年数・樽・ピートも入る", () => {
+    const w = { ...candidate, country: "United Kingdom", region: "Islay", category: "Single Malt", age_years: 10, cask: "Bourbon", peat: "heavy" };
+    const r = applyCandidate("whisky", { ...emptyFormValues("whisky"), name: "x" }, [], w);
+    expect(r.values).toMatchObject({ age_years: "10", cask: "Bourbon", peat: "heavy", region: "Islay" });
   });
 });

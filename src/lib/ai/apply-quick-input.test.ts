@@ -7,9 +7,11 @@ const input = {
   rating: 4,
   bitterness: 4,
   aroma: null,
+  smoky: null,
   sweet_dry: null,
-  light_rich: null,
-  serving_temp: null,
+  aroma_level: null,
+  body: null,
+  served: null,
   comment: "唐揚げと合う",
 };
 

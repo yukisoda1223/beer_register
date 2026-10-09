@@ -4,7 +4,8 @@ import { DrinkImage } from "@/components/DrinkImage";
 import { StarDisplay } from "@/components/StarDisplay";
 import { formatDateLong, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { loadDrinkOr404 } from "@/lib/drinks-server";
-import { SERVING_TEMP_LABELS } from "@/lib/masters";
+import { KIND_CONFIG } from "@/lib/kind-config";
+import { PEAT_LEVELS, servedLabel } from "@/lib/masters";
 
 // 記録の詳細(見るだけ)。下の Edit / Delete から変更できる
 export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id]">) {
@@ -12,6 +13,7 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
   const { drink, imageUrl, history } = await loadDrinkOr404(kindParam, id);
   const kind = drink.kind;
   const origin = originLabel(drink);
+  const config = KIND_CONFIG[kind];
 
   return (
     <div className="flex flex-col gap-4">
@@ -31,24 +33,23 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
 
       <Block title="Rating">
         <StarRow label="Overall" value={drink.rating} large />
-        {kind === "beer" && <StarRow label="Bitterness" value={drink.bitterness} />}
+        {config.stars.map((st) => (
+          <StarRow key={st.field} label={st.label} value={drink[st.field]} />
+        ))}
         <StarRow label="Aroma" value={drink.aroma} />
-        {kind === "sake" && (
-          <>
-            <ScaleRow label="Sweet — Dry" left="Sweet" right="Dry" value={drink.sweet_dry} />
-            <ScaleRow label="Light — Rich" left="Light" right="Rich" value={drink.light_rich} />
-            <TextRow label="Served" value={drink.serving_temp && SERVING_TEMP_LABELS[drink.serving_temp]} />
-          </>
-        )}
+        {config.scales.map((sc) => (
+          <ScaleRow key={sc.field} label={sc.label} left={sc.left} right={sc.right} value={drink[sc.field]} />
+        ))}
+        <TextRow label={config.servedLabel ?? "Served"} value={servedLabel(kind, drink.served)} />
         <TextRow label="Date" value={formatDateLong(drink.drunk_on)} />
       </Block>
 
       <Block title="Drink">
-        <TextRow label="Brewery" value={drink.maker} />
+        <TextRow label={config.makerLabel} value={drink.maker} />
         <TextRow label="Origin" value={origin} />
         <TextRow label="Address" value={drink.maker_address} />
         <TextRow label="ABV" value={drink.abv != null ? `${drink.abv}%` : null} />
-        {kind === "sake" && <SakeRows drink={drink} />}
+        <KindRows drink={drink} />
         <TextRow label="Price" value={priceText(drink)} />
       </Block>
 
@@ -113,13 +114,24 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function SakeRows({ drink }: { drink: Drink }) {
+// 種類ごとの銘柄の情報(日本酒の精米歩合、ウイスキーの年数・樽・ピート、ワインのヴィンテージ など)
+function KindRows({ drink }: { drink: Drink }) {
+  const config = KIND_CONFIG[drink.kind];
+  const formatNumber = (field: string, value: number) => {
+    if (field === "polish_ratio") return `${value}%`;
+    if (field === "sake_meter") return signed(value);
+    if (field === "age_years") return `${value} years`;
+    return `${value}`;
+  };
   return (
     <>
-      <TextRow label="Polishing" value={drink.polish_ratio != null ? `${drink.polish_ratio}%` : null} />
-      <TextRow label="SMV" value={drink.sake_meter != null ? signed(drink.sake_meter) : null} />
-      <TextRow label="Acidity" value={drink.acidity?.toString()} />
-      <TextRow label="Rice" value={drink.rice} />
+      {config.numbers.map((n) => {
+        const v = drink[n.field];
+        return <TextRow key={n.field} label={n.label} value={v != null ? formatNumber(n.field, v) : null} />;
+      })}
+      {config.ingredient && <TextRow label={config.ingredient.label} value={drink.ingredient} />}
+      {config.cask && <TextRow label="Cask" value={drink.cask} />}
+      {config.peat && <TextRow label="Peat" value={PEAT_LEVELS.find((p) => p.value === drink.peat)?.label} />}
     </>
   );
 }

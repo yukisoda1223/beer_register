@@ -28,15 +28,8 @@ import { IMAGE_BUCKET, errorMessage } from "@/lib/drinks-db";
 import { geocodeOnClient, locationKey } from "@/lib/geo/client";
 import { extensionOf } from "@/lib/image";
 import type { Kind } from "@/lib/kinds";
-import {
-  BEER_CATEGORIES,
-  BEER_FAMILY_LABELS,
-  COUNTRY_SUGGESTIONS,
-  PREFECTURES,
-  SAKE_CATEGORIES,
-  SERVING_TEMPS,
-  beerFamilyOf,
-} from "@/lib/masters";
+import { KIND_CONFIG } from "@/lib/kind-config";
+import { BEER_FAMILY_LABELS, COUNTRY_SUGGESTIONS, PREFECTURES, SERVED_OPTIONS, beerFamilyOf } from "@/lib/masters";
 import { normalizeName } from "@/lib/normalize";
 import { deleteTasting, findKnownProduct, saveDrink } from "@/lib/save-drink";
 import { createClient } from "@/lib/supabase/client";
@@ -70,7 +63,7 @@ type SavedState = {
 // 銘柄の情報の欄(前に飲んだ銘柄から入れる対象)
 const PRODUCT_FIELDS = [
   "category", "abv", "price_yen", "price_note", "maker", "maker_address", "country", "region",
-  "polish_ratio", "sake_meter", "acidity", "rice",
+  "polish_ratio", "sake_meter", "acidity", "ingredient", "age_years", "cask", "peat", "vintage",
 ] as const;
 
 function mergeSources(prev: Drink["sources"], add: Drink["sources"]) {
@@ -170,7 +163,8 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
       const next = { ...v, name: String(known.product.name ?? v.name) };
       for (const f of PRODUCT_FIELDS) {
         const value = known.product[f];
-        if ((next[f] as string).trim() === "" && value != null && value !== "") (next[f] as string) = String(value);
+        const empty = next[f] == null || String(next[f]).trim() === "";
+        if (empty && value != null && value !== "") (next as Record<string, unknown>)[f] = f === "peat" ? value : String(value);
       }
       return next;
     });
@@ -346,7 +340,9 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   );
 
   const previewUrl = image.type === "new" ? image.previewUrl : image.type === "remove" ? null : (imageUrl ?? null);
-  const icon = iconOf({ kind, beer_family: beerFamilyOf(values.category), category: values.category });
+  const config = KIND_CONFIG[kind];
+  const servedOptions = SERVED_OPTIONS[kind];
+  const icon = iconOf({ kind, beer_family: beerFamilyOf(values.category), category: values.category, peat: values.peat });
   const busy = saving != null || aiBusy != null;
   const isJapan = values.country.trim().toLowerCase() === "japan";
 
@@ -374,7 +370,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
               value={values.name}
               onChange={(e) => set("name", e.target.value)}
               onBlur={handleNameBlur}
-              placeholder={kind === "beer" ? "e.g. Hazy Morning IPA" : "e.g. Tsukimigawa Junmai Ginjo"}
+              placeholder={config.namePlaceholder}
               className={inputClass(errors.name)}
             />
             {knownCount != null && knownCount > 0 && (
@@ -391,53 +387,33 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           <Field label="Overall" field="rating" error={errors.rating} required>
             <StarRating id="field-rating" label="Overall" value={values.rating} onChange={(v) => set("rating", v)} invalid={!!errors.rating} />
           </Field>
-          {kind === "beer" && (
-            <Field label="Bitterness" field="bitterness">
-              <StarRating label="Bitterness" value={values.bitterness} onChange={(v) => set("bitterness", v)} size={26} />
+          {config.stars.map((st) => (
+            <Field key={st.field} label={st.label} field={st.field}>
+              <StarRating label={st.label} value={values[st.field]} onChange={(v) => set(st.field, v)} size={26} />
             </Field>
-          )}
-          {kind === "sake" && (
-            <>
-              <Field label="Sweet — Dry" field="sweet_dry">
-                <Slider5 label="Sweet to dry" left="Sweet" right="Dry" value={values.sweet_dry} onChange={(v) => set("sweet_dry", v)} />
-              </Field>
-              <Field label="Light — Rich" field="light_rich">
-                <Slider5 label="Light to rich" left="Light" right="Rich" value={values.light_rich} onChange={(v) => set("light_rich", v)} />
-              </Field>
-            </>
-          )}
+          ))}
           <Field label="Aroma" field="aroma">
             <StarRating label="Aroma" value={values.aroma} onChange={(v) => set("aroma", v)} size={26} />
           </Field>
-          {kind === "sake" && (
-            <Field label="Served" field="serving_temp">
-              <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Served">
-                {SERVING_TEMPS.map((t) => {
-                  const active = values.serving_temp === t.value;
-                  return (
-                    <button
-                      key={t.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => set("serving_temp", active ? null : t.value)}
-                      className={`min-h-10 rounded-full border text-[13px] ${
-                        active
-                          ? "border-(--color-primary) bg-(--color-primary) font-medium text-(--color-on-primary)"
-                          : "border-(--color-border) bg-(--color-surface) text-(--color-text-sub)"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
+          {config.scales.map((sc) => (
+            <Field key={sc.field} label={sc.label} field={sc.field}>
+              <Slider5 label={sc.label} left={sc.left} right={sc.right} value={values[sc.field]} onChange={(v) => set(sc.field, v)} />
+            </Field>
+          ))}
+          {servedOptions && (
+            <Field label={config.servedLabel ?? "Served"} field="served">
+              <ChoiceRow
+                label={config.servedLabel ?? "Served"}
+                options={servedOptions}
+                value={values.served}
+                onChange={(v) => set("served", v as DrinkFormValues["served"])}
+              />
             </Field>
           )}
         </Section>
 
         <Section title="Drink">
-          <Field label={kind === "beer" ? "Style" : "Grade"} field="category" error={errors.category} required>
+          <Field label={config.categoryLabel} field="category" error={errors.category} required={config.categoryRequired}>
             <select
               id="field-category"
               value={values.category}
@@ -445,7 +421,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
               className={inputClass(errors.category)}
             >
               <option value="">Choose…</option>
-              {(kind === "beer" ? BEER_CATEGORIES.map((c) => c.label) : SAKE_CATEGORIES).map((c) => (
+              {config.categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -458,14 +434,54 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
 
           <div className="grid grid-cols-2 gap-3">
             <NumberField label="ABV" unit="%" field="abv" values={values} errors={errors} set={set} />
-            {kind === "sake" && <NumberField label="Polishing" unit="%" field="polish_ratio" values={values} errors={errors} set={set} integer />}
-            {kind === "sake" && <NumberField label="SMV" field="sake_meter" values={values} errors={errors} set={set} placeholder="+3 / -2" />}
-            {kind === "sake" && <NumberField label="Acidity" field="acidity" values={values} errors={errors} set={set} />}
+            {config.numbers.map((n) => (
+              <NumberField
+                key={n.field}
+                label={n.label}
+                unit={n.unit}
+                field={n.field}
+                values={values}
+                errors={errors}
+                set={set}
+                integer={n.integer}
+                placeholder={n.placeholder}
+              />
+            ))}
           </div>
 
-          {kind === "sake" && (
-            <Field label="Rice" field="rice">
-              <input id="field-rice" value={values.rice} onChange={(e) => set("rice", e.target.value)} placeholder="e.g. Yamada Nishiki" className={inputClass()} />
+          {config.ingredient && (
+            <Field label={config.ingredient.label} field="ingredient">
+              <input
+                id="field-ingredient"
+                value={values.ingredient}
+                onChange={(e) => set("ingredient", e.target.value)}
+                placeholder={config.ingredient.placeholder}
+                className={inputClass()}
+              />
+            </Field>
+          )}
+
+          {config.cask && (
+            <Field label="Cask" field="cask">
+              <select id="field-cask" value={values.cask} onChange={(e) => set("cask", e.target.value)} className={inputClass()}>
+                <option value="">Choose…</option>
+                {config.cask.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {config.peat && (
+            <Field label="Peat" field="peat">
+              <ChoiceRow
+                label="Peat"
+                options={config.peat.map((p) => ({ value: p.value, label: p.label }))}
+                value={values.peat}
+                onChange={(v) => set("peat", v as DrinkFormValues["peat"])}
+              />
             </Field>
           )}
 
@@ -476,7 +492,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
                 id="field-price_note"
                 value={values.price_note}
                 onChange={(e) => set("price_note", e.target.value)}
-                placeholder={kind === "beer" ? "350ml can" : "720ml"}
+                placeholder={config.sizePlaceholder}
                 className={inputClass()}
               />
             </Field>
@@ -484,7 +500,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         </Section>
 
         <Section title="Origin">
-          <Field label="Brewery" field="maker">
+          <Field label={config.makerLabel} field="maker">
             <input id="field-maker" value={values.maker} onChange={(e) => set("maker", e.target.value)} className={inputClass()} />
           </Field>
 
@@ -553,7 +569,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
               rows={3}
               value={values.comment}
               onChange={(e) => set("comment", e.target.value)}
-              placeholder="Taste, food pairing, where you had it…"
+              placeholder="味の感想、合わせた料理、飲んだ場所など"
               className={inputClass()}
             />
           </Field>
@@ -637,6 +653,43 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         />
       </form>
     </AiFilledContext.Provider>
+  );
+}
+
+// ボタンから1つ選ぶ(もう一度押すと未選択に戻る)
+function ChoiceRow({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(active ? null : o.value)}
+            className={`min-h-9 rounded-full border px-3.5 text-[13px] ${
+              active
+                ? "border-(--color-primary) bg-(--color-primary) font-medium text-(--color-on-primary)"
+                : "border-(--color-border) bg-(--color-surface) text-(--color-text-sub)"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

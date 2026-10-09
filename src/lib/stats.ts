@@ -5,7 +5,7 @@ import type { Kind } from "@/lib/kinds";
 export type StatRecord = Pick<
   Drink,
   | "id" | "product_id" | "status" | "drunk_on" | "name" | "category" | "beer_family" | "kind" | "rating"
-  | "image_path" | "region" | "country" | "sweet_dry" | "light_rich" | "serving_temp" | "created_at"
+  | "image_path" | "region" | "country" | "sweet_dry" | "aroma_level" | "body" | "smoky" | "served" | "peat" | "created_at"
 >;
 
 function saved<T extends Pick<StatRecord, "status">>(records: T[]) {
@@ -111,18 +111,22 @@ export function summaryInput(kind: Kind, records: StatRecord[], today: string) {
     favorites: favoritesTop5(records, today).map((r) => ({ name: r.name, category: r.category, rating: r.rating })),
     countries: [...new Set(s.map((r) => r.country).filter(Boolean))],
   };
+  const avgOf = (f: "sweet_dry" | "aroma_level" | "body" | "smoky") => avg(s.flatMap((r) => (r[f] != null ? [r[f] as number] : [])));
   if (kind === "beer") {
     const families: Record<string, number> = {};
     s.forEach((r) => (families[r.beer_family ?? "other"] = (families[r.beer_family ?? "other"] ?? 0) + 1));
     result.families = families;
-  } else {
-    result.avg_sweet_dry = avg(s.flatMap((r) => (r.sweet_dry != null ? [r.sweet_dry] : [])));
-    result.avg_light_rich = avg(s.flatMap((r) => (r.light_rich != null ? [r.light_rich] : [])));
-    const temps: Record<string, number | null> = {};
-    for (const t of ["cold", "room", "warm", "hot"]) {
-      temps[t] = avg(s.filter((r) => r.serving_temp === t).flatMap((r) => (r.rating != null ? [r.rating] : [])));
+  }
+  if (kind === "sake" || kind === "wine" || kind === "cider") result.avg_sweet_dry = avgOf("sweet_dry");
+  if (kind === "sake") result.avg_aroma_intensity = avgOf("aroma_level");
+  if (kind === "wine" || kind === "whisky") result.avg_body = avgOf("body");
+  if (kind === "whisky") result.avg_smoky = avgOf("smoky");
+  if (kind === "sake" || kind === "whisky") {
+    const served: Record<string, number | null> = {};
+    for (const v of new Set(s.flatMap((r) => (r.served ? [r.served] : [])))) {
+      served[v] = avg(s.filter((r) => r.served === v).flatMap((r) => (r.rating != null ? [r.rating] : [])));
     }
-    result.avg_rating_by_serving_temp = temps;
+    result.avg_rating_by_served = served;
   }
   return result;
 }

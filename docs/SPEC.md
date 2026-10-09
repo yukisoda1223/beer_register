@@ -12,6 +12,11 @@
 > - **写真**は常に 1:1。選んだあとに切り抜き画面を出す。
 > - **アイコン**はビールのスタイルごとの色(Stout は黒、Pilsner は金色など。`src/lib/masters.ts`)。
 > - **AI 自動入力**: 醸造所名や複数の商品に当てはまる名前なら、商品ごとの候補(最大5つ)を出す。名前を変えて調べ直すと、AI が入れた欄は新しい結果で書き換える。
+> - **追加: お酒の種類** Beer / Sake / Whisky / Cider / Wine。テーマ色 Whisky `#98633D` / Cider `#B95759` / Wine `#6E2B3F`。
+>   ヘッダーの切替ボタンの右の「+」→ Drink types(`/{kind}/settings`)で、表示する種類をテーマ色のチェックで選び、右端の ≡ をドラッグして並び替える(一覧の上 = ヘッダーの左端)。設定は `user_settings` に保存(スマホ・PCで共通)。少なくとも1つは表示。
+>   種類ごとの項目は `src/lib/kind-config.ts`: 日本酒 = 甘口〜辛口・香りの強さ(淡麗〜濃醇は廃止)・飲み方(冷酒/常温/ぬる燗/熱燗)、Whisky = Type・熟成年数・樽・ピート・ボディ・スモーキー(★)・飲み方(Neat/Rocks/With water/Highball/Cocktail)、Cider = Style・原料・甘口〜辛口、Wine = Type・ブドウ・ヴィンテージ・甘口〜辛口・ボディ。
+>   保存時に Style(種類)が必須なのはビールだけ。マイグレーション: `supabase/migrations/20261010000000_more_kinds.sql`。
+> - **AI の文章(Your Summary・メモ・価格の補足など)は日本語**。使う人は日本人の想定。
 > - あとの段階で行うことは `docs/BACKLOG.md` を参照。
 
 ---

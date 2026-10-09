@@ -1,10 +1,12 @@
 // 記録1件の型。ビュー drink_records(飲んだ記録 tastings + 銘柄 products)と同じ形
 import type { IconSpec } from "@/components/DrinkIcon";
 import type { Kind } from "@/lib/kinds";
-import { beerColorOf } from "@/lib/masters";
+import { PEAT_LEVELS, WINE_TYPES, beerColorOf } from "@/lib/masters";
 
 export type BeerFamily = "ale" | "lager" | "other";
-export type ServingTemp = "cold" | "room" | "warm" | "hot";
+// 飲み方。日本酒は温度、ウイスキーは飲み方
+export type Served = "cold" | "room" | "warm" | "hot" | "neat" | "rocks" | "water" | "highball" | "cocktail";
+export type Peat = "none" | "light" | "medium" | "heavy";
 
 export type Drink = {
   // 飲んだ記録(tastings)の id
@@ -31,14 +33,25 @@ export type Drink = {
   // ビールのみ
   beer_family: BeerFamily | null;
   bitterness: number | null;
-  // 日本酒のみ
+  // 日本酒
   polish_ratio: number | null;
   sake_meter: number | null;
   acidity: number | null;
-  rice: string | null;
+  // 原料(日本酒は酒米、ワインはブドウ、シードルはリンゴ・洋梨)
+  ingredient: string | null;
+  // ウイスキー
+  age_years: number | null;
+  cask: string | null;
+  peat: Peat | null;
+  // ワイン
+  vintage: number | null;
+  // 飲んだ回ごとの味の評価(5段階)と、ウイスキーのスモーキーさ(★)
   sweet_dry: number | null;
   light_rich: number | null;
-  serving_temp: ServingTemp | null;
+  aroma_level: number | null;
+  body: number | null;
+  smoky: number | null;
+  served: Served | null;
   // 地図・AI関連
   lat: number | null;
   lng: number | null;
@@ -55,9 +68,19 @@ export function originLabel(d: Pick<Drink, "region" | "country">): string | null
 }
 
 // 写真がないときのアイコン(§6.5)。ビールはスタイルの色で塗る
-export function iconOf(d: Pick<Drink, "kind" | "beer_family" | "category">): IconSpec {
-  if (d.kind === "sake") return { type: "sake", color: "#829da5" };
-  return { type: d.beer_family ?? "other", color: beerColorOf(d.category, d.beer_family) };
+export function iconOf(d: Pick<Drink, "kind" | "beer_family" | "category"> & { peat?: Peat | null }): IconSpec {
+  switch (d.kind) {
+    case "sake":
+      return { type: "sake", color: "#829da5" };
+    case "whisky":
+      return { type: "whisky", color: PEAT_LEVELS.find((p) => p.value === d.peat)?.color ?? "#B87333" };
+    case "cider":
+      return { type: "cider", color: "#E8C15A" };
+    case "wine":
+      return { type: "wine", color: WINE_TYPES.find((t) => t.label === d.category)?.color ?? "#6E1F2E" };
+    default:
+      return { type: d.beer_family ?? "other", color: beerColorOf(d.category, d.beer_family) };
+  }
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

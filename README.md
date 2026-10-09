@@ -1,6 +1,6 @@
 # のみくらべ帳(beer_register)
 
-ビールと日本酒の飲み比べを記録する、自分用のスマホ向けWebアプリです。
+ビール・日本酒・ウイスキー・シードル・ワインの飲み比べを記録する、自分用のスマホ向けWebアプリです。
 仕様は [docs/SPEC.md](docs/SPEC.md) にあります。
 
 ## 進み具合
@@ -14,22 +14,27 @@
 | 5 | チャットで入力 | ✅ 完了 |
 | 6 | 地図 | ✅ 完了 |
 | 7 | レポート(ビール) | ✅ 完了(Your Summary・カレンダー・Top5・Styles) |
-| 8 | 日本酒(好みマップ・制覇率) | これから(入力項目は対応済み) |
+| 8 | お酒の種類を追加(Whisky / Cider / Wine・表示する種類の設定) | ✅ 完了 |
+| 8.5 | 種類ごとのレポート(日本酒の好みマップ・都道府県マップ など) | これから |
 | 9 | 仕上げ(PWA・公開) | これから |
 
 画面は英語です。あとで行う改善は [docs/BACKLOG.md](docs/BACKLOG.md) にまとめています。
 
 ---
 
-## 0. データベースの更新(2026-10-09 の版に上げるとき・1回だけ)
+## 0. データベースの更新(新しい版に上げるとき・それぞれ1回だけ)
 
-銘柄(products)と飲んだ記録(tastings)を分け、データを英語にそろえる更新です。**アプリの最新版を動かす前に**行ってください。
+**アプリの最新版を動かす前に**、まだ実行していないものを上から順に Supabase で実行してください。
+やり方: Supabase の「SQL Editor」→「New query」→ ファイルの中身を全部貼り付けて「Run」。
 
-1. Supabase の「SQL Editor」→「New query」。
-2. `supabase/migrations/20261009000000_products_tastings.sql` の中身を全部貼り付けて「Run」。
-3. 最後に `old_records` / `tastings` / `products` の件数が出れば成功(`old_records` と `tastings` は同じ数、`products` は同じ銘柄をまとめた数)。
+1. `supabase/migrations/20261009000000_products_tastings.sql`(2026-10-09 の版)
+   - 銘柄(products)と飲んだ記録(tastings)を分け、データを英語にそろえます。
+   - 最後に `old_records` / `tastings` / `products` の件数が出れば成功(`old_records` と `tastings` は同じ数)。
    - 今までのテーブルは `drinks_old` という名前で残ります(しばらく様子を見て、問題なければ消してOK)。
-   - AI の調査結果のキャッシュは日本語だったので消えます(次に調べたときに英語で作り直されます)。
+2. `supabase/migrations/20261010000000_more_kinds.sql`(Whisky / Cider / Wine を追加した版)
+   - お酒の種類の追加、表示する種類の設定(`user_settings`)、種類ごとの項目を足します。
+   - 「Success. No rows returned」と出れば成功。Your Summary は日本語に変わるので、次に開いたときに作り直されます。
+   - **1 を実行してから** 2 を実行してください(順番が逆だとエラーになります)。
 
 ---
 

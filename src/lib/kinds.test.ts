@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isKind, switchKindInPath } from "./kinds";
+import { headerKinds, isKind, switchKindInPath } from "./kinds";
 
 describe("switchKindInPath", () => {
   it("同じ種類の画面のまま kind を入れ替える", () => {
@@ -21,10 +21,22 @@ describe("switchKindInPath", () => {
 });
 
 describe("isKind", () => {
-  it("beer と sake だけを受け付ける", () => {
-    expect(isKind("beer")).toBe(true);
-    expect(isKind("sake")).toBe(true);
-    expect(isKind("wine")).toBe(false);
+  it("5種類だけを受け付ける", () => {
+    for (const k of ["beer", "sake", "whisky", "cider", "wine"]) expect(isKind(k)).toBe(true);
+    expect(isKind("mead")).toBe(false);
     expect(isKind(undefined)).toBe(false);
+  });
+});
+
+describe("headerKinds", () => {
+  it("並び順のとおりに、表示する種類だけを出す", () => {
+    expect(headerKinds(["wine", "beer", "sake", "whisky", "cider"], ["beer", "wine"])).toEqual(["wine", "beer"]);
+  });
+  it("並び順に無い種類は後ろに足し、知らない値は無視する", () => {
+    expect(headerKinds(["sake", "mead"], ["beer", "sake", "cider"])).toEqual(["sake", "beer", "cider"]);
+  });
+  it("いま見ている種類が非表示なら末尾に出す。何も無ければ beer", () => {
+    expect(headerKinds(["beer", "sake"], ["beer"], "sake")).toEqual(["beer", "sake"]);
+    expect(headerKinds([], [])).toEqual(["beer"]);
   });
 });

@@ -1,6 +1,7 @@
 // 写真がないときのアイコン(仕様書 §6.5)。すべて自作の SVG。
-// ale・lager はグラス、other は缶、sake は徳利とおちょこ。ビールはスタイルごとの色(masters.ts)で塗る
-export type DrinkIconType = "ale" | "lager" | "other" | "sake";
+// ale・lager はグラス、other は缶、sake は徳利とおちょこ、whisky はロックグラス、
+// cider は丸くて背の低いグラス、wine はワイングラス。中身の色は種類・スタイルごと(masters.ts)
+export type DrinkIconType = "ale" | "lager" | "other" | "sake" | "whisky" | "cider" | "wine";
 export type IconSpec = { type: DrinkIconType; color: string };
 
 export function DrinkIcon({ type, color, size = 36 }: IconSpec & { size?: number }) {
@@ -23,6 +24,29 @@ export function DrinkIcon({ type, color, size = 36 }: IconSpec & { size?: number
           <path d="M32.2 33h7" stroke="#829da5" />
         </g>
       )}
+      {type === "whisky" && (
+        <g>
+          <path d="M13 17h22l-1.6 18.5a2 2 0 0 1-2 1.8H16.6a2 2 0 0 1-2-1.8z" fill="#ffffff" stroke="#2f2f2f" strokeOpacity=".18" />
+          <path d="M14.1 26h19.8l-.8 9.4a2 2 0 0 1-2 1.8H16.9a2 2 0 0 1-2-1.8z" fill={color} />
+          <rect x="18" y="21" width="7" height="7" rx="1.2" fill="#ffffff" opacity=".7" stroke="#d8e4e8" strokeWidth=".8" />
+        </g>
+      )}
+      {type === "cider" && (
+        <g>
+          <path d="M12.5 19h23c0 9.5-4.2 17-11.5 17s-11.5-7.5-11.5-17z" fill="#ffffff" stroke="#2f2f2f" strokeOpacity=".18" />
+          <path d="M13.3 24h21.4c-1 7-4.8 12-10.7 12s-9.7-5-10.7-12z" fill={color} />
+          <circle cx="20" cy="29" r="1" fill="#ffffff" opacity=".8" />
+          <circle cx="26" cy="31" r=".8" fill="#ffffff" opacity=".8" />
+          <circle cx="23" cy="27" r=".7" fill="#ffffff" opacity=".8" />
+        </g>
+      )}
+      {type === "wine" && (
+        <g>
+          <path d="M16 9h16c.6 8.5-2.2 15-8 15s-8.6-6.5-8-15z" fill="#ffffff" stroke="#2f2f2f" strokeOpacity=".18" />
+          <path d="M16.3 15h15.4c-.4 5.5-3 9-7.7 9s-7.3-3.5-7.7-9z" fill={color} />
+          <path d="M24 24v11M18.5 38h11" stroke="#2f2f2f" strokeOpacity=".3" strokeWidth="1.4" strokeLinecap="round" />
+        </g>
+      )}
     </svg>
   );
 }
@@ -32,6 +56,9 @@ const LABELS: Record<DrinkIconType, string> = {
   lager: "Lager",
   other: "Beer",
   sake: "Sake",
+  whisky: "Whisky",
+  cider: "Cider",
+  wine: "Wine",
 };
 
 function Glass({ beer }: { beer: string }) {

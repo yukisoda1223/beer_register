@@ -8,6 +8,7 @@ import { MonthCalendar } from "@/components/report/MonthCalendar";
 import { YourSummary } from "@/components/report/YourSummary";
 import { iconOf, originLabel } from "@/lib/drink";
 import { IMAGE_BUCKET } from "@/lib/drinks-db";
+import { KIND_CONFIG } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
 import { categoryBreakdown, countDrinks, favoritesTop5, type StatRecord } from "@/lib/stats";
 import { createClient } from "@/lib/supabase/server";
@@ -23,7 +24,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
   const supabase = await createClient();
   const { data } = await supabase
     .from("drink_records")
-    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, light_rich, serving_temp, created_at")
+    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, served, peat, created_at")
     .eq("kind", kind)
     .eq("status", "saved");
   const records = (data ?? []) as StatRecord[];
@@ -83,7 +84,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         <MiniMap kind={kind} />
       </Card>
 
-      <Card title={kind === "beer" ? "Styles" : "Grades"}>
+      <Card title={`${KIND_CONFIG[kind].categoryLabel}s`}>
         {styles.total === 0 ? (
           <p className="text-[13px] text-(--color-text-sub)">Nothing logged yet.</p>
         ) : (
