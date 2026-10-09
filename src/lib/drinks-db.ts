@@ -1,4 +1,5 @@
-// 記録の読み書き(ブラウザ側)。他人の記録は RLS で見えないので user_id での絞り込みは不要
+// 記録の読み込み(ブラウザ側)。ビュー drink_records(飲んだ記録 + 銘柄)から読む。
+// 他人の記録は RLS で見えないので user_id での絞り込みは不要
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Drink } from "@/lib/drink";
 import type { Kind } from "@/lib/kinds";
@@ -21,7 +22,7 @@ export function sanitizeSearch(q: string) {
 }
 
 export async function fetchDrinkPage(supabase: SupabaseClient, q: ListQuery, page: number) {
-  let query = supabase.from("drinks").select("*").eq("kind", q.kind).eq("status", q.status);
+  let query = supabase.from("drink_records").select("*").eq("kind", q.kind).eq("status", q.status);
 
   const search = sanitizeSearch(q.search);
   if (search) query = query.or(`name.ilike.%${search}%,maker.ilike.%${search}%`);
@@ -41,7 +42,7 @@ export async function fetchDrinkPage(supabase: SupabaseClient, q: ListQuery, pag
 
 export async function countDrafts(supabase: SupabaseClient, kind: Kind) {
   const { count } = await supabase
-    .from("drinks")
+    .from("drink_records")
     .select("id", { count: "exact", head: true })
     .eq("kind", kind)
     .eq("status", "draft");
@@ -60,15 +61,8 @@ export async function signedImageUrls(supabase: SupabaseClient, paths: string[])
   return map;
 }
 
-// 記録を消す(写真も一緒に消す)
-export async function deleteDrink(supabase: SupabaseClient, id: string, imagePath: string | null) {
-  const { error } = await supabase.from("drinks").delete().eq("id", id);
-  if (error) throw error;
-  if (imagePath) await supabase.storage.from(IMAGE_BUCKET).remove([imagePath]);
-}
-
 // 通信エラーのときの表示
 export function errorMessage(fallback: string) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return "通信できません。電波のよいところでもう一度お試しください。";
+  if (typeof navigator !== "undefined" && !navigator.onLine) return "You seem to be offline. Please try again.";
   return fallback;
 }

@@ -7,7 +7,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import { useEffect, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DrinkIcon } from "@/components/DrinkIcon";
-import { iconTypeOf } from "@/lib/drink";
+import { iconOf } from "@/lib/drink";
 import type { MapDrink } from "@/lib/map-data";
 
 const JAPAN: L.LatLngTuple = [36.5, 137.5];
@@ -20,7 +20,7 @@ function escapeHtml(text: string) {
 function drinkIcon(drink: MapDrink, imageUrl: string | undefined) {
   const picture = imageUrl
     ? `<img src="${escapeHtml(imageUrl)}" alt="" />`
-    : renderToStaticMarkup(<DrinkIcon type={iconTypeOf(drink)} size={40} />);
+    : renderToStaticMarkup(<DrinkIcon {...iconOf(drink)} size={40} />);
   return L.divIcon({
     className: "drink-pin",
     html: `<div class="drink-pin__inner"><div class="drink-pin__photo">${picture}</div><div class="drink-pin__name">${escapeHtml(drink.name)}</div></div>`,
@@ -150,7 +150,7 @@ export default function DrinkMap({ drinks, imageUrls, variant, onSelect, fitSign
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitSignal]);
 
-  return <div ref={containerRef} className="size-full" aria-label="地図" role="region" />;
+  return <div ref={containerRef} className="size-full" aria-label="Map" role="region" />;
 }
 
 function fit(map: L.Map, drinks: MapDrink[], mini: boolean) {

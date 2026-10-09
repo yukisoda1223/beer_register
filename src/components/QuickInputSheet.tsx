@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { Kind } from "@/lib/kinds";
 
 const EXAMPLES: Record<Kind, string> = {
-  beer: "例: ○○ペールエール ★4 苦め、唐揚げと合う",
-  sake: "例: ○○ 純米吟醸 ★4.5 すっきり辛口、冷やで刺身と",
+  beer: "e.g. Hazy Morning IPA ★4, quite bitter, great with fried chicken",
+  sake: "e.g. Tsukimigawa Junmai Ginjo ★4.5, crisp and dry, chilled with sashimi",
 };
 
-// 「チャットで入力」(仕様書 §8.4)。下から出るシートに一文を書いて送る
+// 「Quick note」(チャットで入力、仕様書 §8.4)。下から出るシートに一文を書いて送る
 export function QuickInputSheet({
   kind,
   busy,
@@ -36,19 +36,19 @@ export function QuickInputSheet({
     setOpen(false);
   }
 
-  const status = busy === "quick" ? "読み取っています…" : busy === "research" ? "名前から調べています…" : null;
+  const status = busy === "quick" ? "Reading…" : busy === "research" ? "Looking it up…" : null;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-11 items-center gap-1.5 rounded-full bg-(--color-surface) px-4 text-[15px] font-bold text-(--color-accent-text) shadow-sm"
+        className="flex min-h-10 items-center gap-1.5 rounded-full border border-(--color-border) bg-(--color-surface) px-3.5 text-[13px] font-medium text-(--color-accent-text)"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-          <path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+          <path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
         </svg>
-        チャットで入力
+        Quick note
       </button>
 
       <dialog
@@ -56,45 +56,43 @@ export function QuickInputSheet({
         aria-labelledby="quick-title"
         onClose={() => setOpen(false)}
         onClick={(e) => e.target === ref.current && !busy && setOpen(false)}
-        className="mx-auto mt-auto mb-0 w-full max-w-[480px] rounded-t-2xl bg-(--color-surface) p-5 pb-[max(env(safe-area-inset-bottom),20px)] text-(--color-text) shadow-xl backdrop:bg-black/40"
+        className="mx-auto mt-auto mb-0 w-full max-w-[480px] rounded-t-3xl bg-(--color-surface) p-5 pb-[max(env(safe-area-inset-bottom),20px)] text-(--color-text) shadow-lg backdrop:bg-black/30"
       >
-        <h2 id="quick-title" className="text-lg font-bold">
-          チャットで入力
+        <h2 id="quick-title" className="text-[15px] font-medium">
+          Quick note
         </h2>
-        <p className="mt-1 text-[13px] text-(--color-text-sub)">
-          飲んだお酒の名前と感想を一文で書くと、AIが項目に分けて入れます(名前から詳しい情報も調べます)。
-        </p>
+        <p className="mt-1 text-[13px] text-(--color-text-sub)">Write the name and how it was. AI fills in the form.</p>
         <textarea
           rows={3}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={EXAMPLES[kind]}
-          aria-label="感想"
+          aria-label="Note"
           disabled={busy != null}
-          className="mt-3 w-full rounded-xl border border-(--color-border) bg-(--color-surface) px-3 py-2 text-base"
+          className="mt-3 w-full rounded-xl border border-(--color-border) bg-(--color-surface) px-3 py-2 text-[15px]"
         />
         <div className="mt-3 flex gap-3">
           <button
             type="button"
             onClick={() => setOpen(false)}
             disabled={busy != null}
-            className="min-h-11 flex-1 rounded-xl border border-(--color-border) font-bold disabled:opacity-60"
+            className="min-h-10 flex-1 rounded-full border border-(--color-border) text-[13px] font-medium disabled:opacity-60"
           >
-            閉じる
+            Close
           </button>
           <button
             type="button"
             onClick={send}
             disabled={busy != null || !text.trim()}
-            className="flex min-h-11 flex-[2] items-center justify-center gap-2 rounded-xl bg-(--color-primary) font-bold text-(--color-on-primary) disabled:opacity-60"
+            className="flex min-h-10 flex-[2] items-center justify-center gap-2 rounded-full bg-(--color-primary) text-[13px] font-medium text-(--color-on-primary) disabled:opacity-60"
           >
             {status ? (
               <>
-                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+                <span className="size-3.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" aria-hidden />
                 {status}
               </>
             ) : (
-              "送る"
+              "Send"
             )}
           </button>
         </div>

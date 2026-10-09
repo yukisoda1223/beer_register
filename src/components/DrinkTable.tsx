@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DrinkImage } from "@/components/DrinkImage";
-import { formatDateShort, iconTypeOf, originLabel, type Drink } from "@/lib/drink";
+import { formatDateShort, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { PAGE_SIZE, errorMessage, fetchDrinkPage, signedImageUrls, type ListQuery } from "@/lib/drinks-db";
 import type { Kind } from "@/lib/kinds";
 import { BEER_CATEGORIES, SAKE_CATEGORIES } from "@/lib/masters";
@@ -62,7 +62,7 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
         setHasMore(rows.length === PAGE_SIZE);
         setError(null);
       })
-      .catch(() => !cancelled && setError(errorMessage("読み込めませんでした。")))
+      .catch(() => !cancelled && setError(errorMessage("Couldn't load your entries.")))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -93,18 +93,18 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
         type="search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={kind === "beer" ? "商品名・醸造所で探す" : "商品名・酒蔵で探す"}
-        aria-label="検索"
-        className="min-h-11 w-full rounded-xl border border-(--color-border) bg-(--color-surface) px-3"
+        placeholder="Search name or brewery"
+        aria-label="Search"
+        className="min-h-10 w-full rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px]"
       />
-      <div className="grid grid-cols-3 gap-2 text-[13px]">
+      <div className="grid grid-cols-3 gap-2 text-[12px]">
         <select
-          aria-label="カテゴリで絞り込み"
+          aria-label="Filter by style"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="min-h-11 rounded-xl border border-(--color-border) bg-(--color-surface) px-2"
+          className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-3"
         >
-          <option value="">{kind === "beer" ? "全カテゴリ" : "全特定名称"}</option>
+          <option value="">{kind === "beer" ? "All styles" : "All grades"}</option>
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -112,31 +112,31 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
           ))}
         </select>
         <select
-          aria-label="評価で絞り込み"
+          aria-label="Filter by rating"
           value={minRating ?? ""}
           onChange={(e) => setMinRating(e.target.value === "" ? null : Number(e.target.value))}
-          className="min-h-11 rounded-xl border border-(--color-border) bg-(--color-surface) px-2"
+          className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-3"
         >
-          <option value="">★すべて</option>
+          <option value="">Any rating</option>
           {MIN_RATINGS.map((r) => (
             <option key={r} value={r}>
-              ★{r}以上
+              ★ {r}+
             </option>
           ))}
         </select>
         <select
-          aria-label="並び替え"
+          aria-label="Sort"
           value={sort}
           onChange={(e) => setSort(e.target.value as ListQuery["sort"])}
-          className="min-h-11 rounded-xl border border-(--color-border) bg-(--color-surface) px-2"
+          className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-3"
         >
-          <option value="date">新しい順</option>
-          <option value="rating">評価が高い順</option>
+          <option value="date">Newest</option>
+          <option value="rating">Top rated</option>
         </select>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-[13px] text-(--color-danger)">
           {error}
         </p>
       )}
@@ -144,30 +144,30 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
       {!loading && !error && items.length === 0 ? (
         <EmptyState kind={kind} status={status} filtered={filtered} />
       ) : (
-        <div className="overflow-hidden rounded-xl bg-(--color-surface) shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-          <div role="row" className={`${ROW_GRID} bg-(--color-bg) py-2 text-[13px] text-(--color-text-sub)`}>
+        <div className="overflow-hidden rounded-2xl border border-(--color-border) bg-(--color-surface)">
+          <div role="row" className={`${ROW_GRID} border-b border-(--color-border) py-2 text-[10px] tracking-[0.1em] text-(--color-text-sub) uppercase`}>
             <span role="columnheader">
-              <span className="sr-only">画像</span>
+              <span className="sr-only">Photo</span>
             </span>
-            <span role="columnheader">日付</span>
-            <span role="columnheader">商品名</span>
-            <span role="columnheader">産地</span>
-            <span role="columnheader">評価</span>
+            <span role="columnheader">Date</span>
+            <span role="columnheader">Name</span>
+            <span role="columnheader">Origin</span>
+            <span role="columnheader">Rating</span>
           </div>
           <ul className="divide-y divide-(--color-border)">
             {items.map((d) => (
               <li key={d.id}>
                 <Link href={rowHref(d)} className={`${ROW_GRID} min-h-14 py-2 active:bg-(--color-bg)`}>
-                  <DrinkImage url={d.image_path ? imageUrls[d.image_path] : null} icon={iconTypeOf(d)} size={36} />
-                  <span className="text-[13px] tabular-nums text-(--color-text-sub)">{formatDateShort(d.drunk_on)}</span>
-                  <span className="line-clamp-2 leading-snug">{d.name}</span>
-                  <span className="line-clamp-2 text-[13px] leading-snug text-(--color-text-sub)">{originLabel(d) ?? "—"}</span>
+                  <DrinkImage url={d.image_path ? imageUrls[d.image_path] : null} icon={iconOf(d)} size={36} />
+                  <span className="text-[12px] tabular-nums text-(--color-text-sub)">{formatDateShort(d.drunk_on)}</span>
+                  <span className="line-clamp-2 text-[14px] leading-snug">{d.name}</span>
+                  <span className="line-clamp-2 text-[11px] leading-snug text-(--color-text-sub)">{originLabel(d) ?? "—"}</span>
                   <RatingCompact value={d.rating} />
                 </Link>
               </li>
             ))}
           </ul>
-          {loading && <p className="py-4 text-center text-[13px] text-(--color-text-sub)">読み込んでいます…</p>}
+          {loading && <p className="py-4 text-center text-[12px] text-(--color-text-sub)">Loading…</p>}
           <div ref={sentinel} aria-hidden className="h-1" />
         </div>
       )}
@@ -176,13 +176,13 @@ export function DrinkTable({ kind, status }: { kind: Kind; status: "draft" | "sa
 }
 
 // 行の列の幅: 画像・日付・商品名・産地・評価
-const ROW_GRID = "grid grid-cols-[36px_36px_minmax(0,1fr)_56px_44px] items-center gap-2 px-3";
+const ROW_GRID = "grid grid-cols-[36px_34px_minmax(0,1fr)_76px_38px] items-center gap-2 px-3";
 
 // 一覧用の小さな評価表示(★1つ+数字)
 function RatingCompact({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-[13px] text-(--color-text-sub)">—</span>;
+  if (value == null) return <span className="text-[12px] text-(--color-text-sub)">—</span>;
   return (
-    <span className="flex items-center gap-0.5 text-[13px] font-bold tabular-nums" aria-label={`5点中${value}点`}>
+    <span className="flex items-center gap-0.5 text-[12px] font-medium tabular-nums" aria-label={`${value} out of 5`}>
       <span aria-hidden className="text-(--color-secondary)">
         ★
       </span>
@@ -193,21 +193,21 @@ function RatingCompact({ value }: { value: number | null }) {
 
 function EmptyState({ kind, status, filtered }: { kind: Kind; status: "draft" | "saved"; filtered: boolean }) {
   if (filtered) {
-    return <p className="py-10 text-center text-(--color-text-sub)">条件に合う記録がありません。</p>;
+    return <p className="py-10 text-center text-[13px] text-(--color-text-sub)">No matches.</p>;
   }
   if (status === "draft") {
-    return <p className="py-10 text-center text-(--color-text-sub)">下書きはありません。</p>;
+    return <p className="py-10 text-center text-[13px] text-(--color-text-sub)">No drafts.</p>;
   }
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
-      <p className="text-(--color-text-sub)">まだ記録がありません。＋から記録しましょう</p>
+      <p className="text-[13px] text-(--color-text-sub)">Nothing here yet. Tap + to add your first.</p>
       <Link
         href={`/${kind}/new`}
-        aria-label="記録する"
-        className="flex size-14 items-center justify-center rounded-full bg-(--color-primary) text-(--color-on-primary) shadow"
+        aria-label="New entry"
+        className="flex size-12 items-center justify-center rounded-full bg-(--color-primary) text-(--color-on-primary)"
       >
         <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
-          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       </Link>
     </div>

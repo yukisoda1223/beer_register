@@ -3,17 +3,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LatLng = { lat: number; lng: number };
-export type GeocodeInput = { address: string | null; prefecture: string | null; country: string | null };
+export type GeocodeInput = { address: string | null; region: string | null; country: string | null };
 
 const NOMINATIM_URL = process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org";
 
-// 探す順番: 住所 → (住所で見つからなければ)都道府県 → 国
-export function geocodeQueries({ address, prefecture, country }: GeocodeInput): string[] {
-  const parts = [
-    address?.trim(),
-    prefecture?.trim() ? `${prefecture.trim()} 日本` : null,
-    country?.trim() && country.trim() !== "日本" ? country.trim() : country?.trim() === "日本" && !prefecture ? "日本" : null,
-  ];
+// 探す順番: 所在地 → 「地域, 国」(例: Ontario, Canada / Nagano, Japan) → 国
+export function geocodeQueries({ address, region, country }: GeocodeInput): string[] {
+  const r = region?.trim();
+  const c = country?.trim();
+  const parts = [address?.trim(), r ? (c ? `${r}, ${c}` : r) : null, c];
   return [...new Set(parts.filter((q): q is string => Boolean(q)))];
 }
 

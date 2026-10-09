@@ -22,9 +22,9 @@ export async function consumeAiQuota(supabase: SupabaseClient, userId: string, p
     .from("ai_usage")
     .select("id", { count: "exact", head: true })
     .gte("created_at", startOfTodayJST().toISOString());
-  if (error) throw new AiError("利用回数を確認できませんでした。");
-  if ((count ?? 0) >= dailyLimit()) throw new AiError("今日のAI利用回数の上限に達しました。", 429);
+  if (error) throw new AiError("Could not check today's AI usage.");
+  if ((count ?? 0) >= dailyLimit()) throw new AiError("You have reached today's AI limit.", 429);
 
   const { error: insertError } = await supabase.from("ai_usage").insert({ user_id: userId, purpose });
-  if (insertError) throw new AiError("利用回数を記録できませんでした。");
+  if (insertError) throw new AiError("Could not record AI usage.");
 }

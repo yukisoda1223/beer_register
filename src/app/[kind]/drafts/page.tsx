@@ -8,7 +8,7 @@ export default async function DraftsPage({ params }: PageProps<"/[kind]/drafts">
   const kind = (await params).kind as Kind;
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">下書き</h1>
+      <h1 className="text-[20px] font-medium tracking-tight">Drafts</h1>
       <DrinkTable kind={kind} status="draft" />
       <Suspense>
         <Toast />

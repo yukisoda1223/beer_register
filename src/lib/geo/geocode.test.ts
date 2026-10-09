@@ -2,20 +2,18 @@ import { describe, expect, it } from "vitest";
 import { geocodeQueries } from "./geocode";
 
 describe("geocodeQueries", () => {
-  it("住所 → 都道府県の順に探す", () => {
-    expect(geocodeQueries({ address: "新潟県長岡市", prefecture: "新潟県", country: "日本" })).toEqual([
-      "新潟県長岡市",
-      "新潟県 日本",
+  it("所在地 → 地域, 国 → 国 の順に探す", () => {
+    expect(geocodeQueries({ address: "Matsumoto, Nagano", region: "Nagano", country: "Japan" })).toEqual([
+      "Matsumoto, Nagano",
+      "Nagano, Japan",
+      "Japan",
     ]);
   });
-  it("海外は住所 → 国", () => {
-    expect(geocodeQueries({ address: "Brussels", prefecture: null, country: "ベルギー" })).toEqual(["Brussels", "ベルギー"]);
-  });
-  it("住所がなくても都道府県や国で探す", () => {
-    expect(geocodeQueries({ address: null, prefecture: "長野県", country: "日本" })).toEqual(["長野県 日本"]);
-    expect(geocodeQueries({ address: " ", prefecture: null, country: "日本" })).toEqual(["日本"]);
+  it("所在地がなくても地域や国で探す", () => {
+    expect(geocodeQueries({ address: null, region: "Ontario", country: "Canada" })).toEqual(["Ontario, Canada", "Canada"]);
+    expect(geocodeQueries({ address: " ", region: null, country: "Italy" })).toEqual(["Italy"]);
   });
   it("何もなければ探さない", () => {
-    expect(geocodeQueries({ address: null, prefecture: null, country: null })).toEqual([]);
+    expect(geocodeQueries({ address: null, region: null, country: null })).toEqual([]);
   });
 });

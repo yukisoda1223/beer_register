@@ -10,15 +10,15 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col items-center justify-center gap-8 px-6">
       <div className="flex flex-col items-center gap-3">
         <div className="flex gap-2">
-          <DrinkIcon type="lager" size={56} />
-          <DrinkIcon type="sake" size={56} />
+          <DrinkIcon type="lager" color="#E7B447" size={52} />
+          <DrinkIcon type="sake" color="#829DA5" size={52} />
         </div>
-        <h1 className="text-2xl font-bold">のみくらべ帳</h1>
-        <p className="text-[13px] text-(--color-text-sub)">ビールと日本酒の飲み比べ記録</p>
+        <h1 className="text-[24px] font-medium tracking-tight">Nomikurabe</h1>
+        <p className="text-[13px] text-(--color-text-sub)">Your beer &amp; sake journal</p>
       </div>
 
       {message && (
-        <p role="alert" className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
+        <p role="alert" className="w-full rounded-xl bg-red-50 px-4 py-3 text-[13px] text-(--color-danger)">
           {message}
         </p>
       )}

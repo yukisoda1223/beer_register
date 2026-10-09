@@ -16,7 +16,7 @@ export function LoginButton() {
     });
     // 成功したときは Google の画面へ移るので、ここに来るのは失敗したときだけ
     if (error) {
-      setError(navigator.onLine ? "ログインを始められませんでした。" : "通信できません。");
+      setError(navigator.onLine ? "Couldn't start sign-in." : "You seem to be offline.");
       setLoading(false);
     }
   }
@@ -27,12 +27,12 @@ export function LoginButton() {
         type="button"
         onClick={handleLogin}
         disabled={loading}
-        className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-(--color-border) bg-(--color-surface) px-4 font-bold shadow-sm disabled:opacity-60"
+        className="flex min-h-11 w-full items-center justify-center gap-3 rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px] font-medium disabled:opacity-60"
       >
         <GoogleMark />
-        {loading ? "Google に移動しています…" : "Googleでログイン"}
+        {loading ? "Opening Google…" : "Continue with Google"}
       </button>
-      {error && <p className="text-[13px] text-red-700">{error}</p>}
+      {error && <p className="text-[12px] text-(--color-danger)">{error}</p>}
     </div>
   );
 }

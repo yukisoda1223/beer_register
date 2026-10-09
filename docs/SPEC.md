@@ -1,8 +1,18 @@
 # beer_register 実装仕様書(Claude Code 向け)
 
-最終更新: 2026-10-05(M1後の修正: 一覧に産地、詳細画面の追加、Your Summary)
+最終更新: 2026-10-09
 
-ビールと日本酒の飲み比べを記録する、個人用のスマホ向けWebアプリ。銘柄名だけ入れればAI(Claude API)が残りの項目を調べて埋め、レポート画面で好みの傾向・地図・グラフを見られる。
+> ## 2026-10-09 の変更(この節が下の本文より優先)
+> - **画面はすべて英語**。スタイル・特定名称・国名・地域もデータごと英語(例: Pilsner / Junmai Ginjo / Canada / Nagano)。
+> - **産地**は「地域, 国」で表示(例: Ontario, Canada / Nagano, Japan)。日本の地域は都道府県名(県を付けない)。列 `prefecture` は廃止し `region` に。
+> - **銘柄と飲酒記録を分離**: `products`(銘柄の情報)と `tastings`(飲んだ1回: 日付・評価・写真・コメント)。画面はビュー `drink_records`(両者を結合、`security_invoker`)から読む。
+>   同じ銘柄(正規化した名前が同じ)の2回目以降は、銘柄を増やさず記録だけ増える。マイグレーション: `supabase/migrations/20261009000000_products_tastings.sql`(旧 `drinks` は `drinks_old` として残す)。
+> - **デザイン**: 背景は共通のウォームホワイト `#F8F7F4`、文字はチャコール `#2F2F2F`。アクセントは Beer `#E7B447` / Sake `#829DA5`(今後 Cider `#B95759` / Whisky `#98633D`)。英字は Inter、日本語は Noto Sans JP。線・文字は細め。
+> - **レポート**: Your Summary(AI)→ Unique Drinks / Total Tastings → 今月のカレンダー(飲んだ日をアクセント色、回数で濃く)→ Your Favorites Top 5(タップで詳細 → Edit)→ Map → Styles。
+> - **写真**は常に 1:1。選んだあとに切り抜き画面を出す。
+> - **アイコン**はビールのスタイルごとの色(Stout は黒、Pilsner は金色など。`src/lib/masters.ts`)。
+> - **AI 自動入力**: 醸造所名や複数の商品に当てはまる名前なら、商品ごとの候補(最大5つ)を出す。名前を変えて調べ直すと、AI が入れた欄は新しい結果で書き換える。
+> - あとの段階で行うことは `docs/BACKLOG.md` を参照。
 
 ---
 

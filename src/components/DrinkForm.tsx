@@ -14,7 +14,7 @@ import { applyCandidate } from "@/lib/ai/apply-research";
 import { postAi } from "@/lib/ai/fetch-client";
 import type { QuickInput } from "@/lib/ai/quick-input-schema";
 import type { ResearchCandidate, ResearchResult } from "@/lib/ai/research-schema";
-import { iconTypeOf, type Drink } from "@/lib/drink";
+import { iconOf, type Drink } from "@/lib/drink";
 import {
   drinkPayload,
   emptyFormValues,
@@ -24,9 +24,9 @@ import {
   type DrinkFormField,
   type DrinkFormValues,
 } from "@/lib/drink-form";
-import { IMAGE_BUCKET, deleteDrink, errorMessage } from "@/lib/drinks-db";
+import { IMAGE_BUCKET, errorMessage } from "@/lib/drinks-db";
 import { geocodeOnClient, locationKey } from "@/lib/geo/client";
-import { compressImage, extensionOf } from "@/lib/image";
+import { extensionOf } from "@/lib/image";
 import type { Kind } from "@/lib/kinds";
 import {
   BEER_CATEGORIES,
@@ -37,6 +37,8 @@ import {
   SERVING_TEMPS,
   beerFamilyOf,
 } from "@/lib/masters";
+import { normalizeName } from "@/lib/normalize";
+import { deleteTasting, findKnownProduct, saveDrink } from "@/lib/save-drink";
 import { createClient } from "@/lib/supabase/client";
 
 // AIが埋めた項目の一覧(各入力欄の「AI」バッジ用)
@@ -57,12 +59,19 @@ type ResearchResponse = ResearchResult & { cached: boolean };
 // データベースに保存済みの内容のうち、保存のしかたに関わるもの
 type SavedState = {
   status: Status;
+  productId: string;
   image_path: string | null;
   lat: number | null;
   lng: number | null;
-  // 緯度経度を調べたときの「所在地|都道府県|国」
+  // 緯度経度を調べたときの「所在地|地域|国」
   locationKey: string;
 };
+
+// 銘柄の情報の欄(前に飲んだ銘柄から入れる対象)
+const PRODUCT_FIELDS = [
+  "category", "abv", "price_yen", "price_note", "maker", "maker_address", "country", "region",
+  "polish_ratio", "sake_meter", "acidity", "rice",
+] as const;
 
 function mergeSources(prev: Drink["sources"], add: Drink["sources"]) {
   const urls = new Set(prev.map((s) => s.url));
@@ -93,10 +102,11 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     drink
       ? {
           status: drink.status,
+          productId: drink.product_id,
           image_path: drink.image_path,
           lat: drink.lat,
           lng: drink.lng,
-          locationKey: locationKey({ address: drink.maker_address, prefecture: drink.prefecture, country: drink.country }),
+          locationKey: locationKey({ address: drink.maker_address, region: drink.region, country: drink.country }),
         }
       : null,
   );
@@ -106,6 +116,8 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   const [aiBusy, setAiBusy] = useState<"quick" | "research" | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [choices, setChoices] = useState<ResearchResult | null>(null);
+  // 前に飲んだことのある銘柄なら、その回数
+  const [knownCount, setKnownCount] = useState<number | null>(null);
 
   const id = drink?.id ?? newId;
   const isSavedRecord = record?.status === "saved";
@@ -143,25 +155,46 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     setErrors({});
   }
 
+  // 名前を入れ終わったとき: 前に飲んだ銘柄なら、その情報を空いている欄に入れる
+  async function handleNameBlur() {
+    const key = normalizeName(values.name);
+    if (!key) return;
+    const known = await findKnownProduct(createClient(), kind, key).catch(() => null);
+    if (!known || known.product.id === record?.productId) {
+      setKnownCount(null);
+      return;
+    }
+    setKnownCount(known.tastingCount);
+    setValues((v) => {
+      // 名前は前の記録の書き方(正式名)にそろえる
+      const next = { ...v, name: String(known.product.name ?? v.name) };
+      for (const f of PRODUCT_FIELDS) {
+        const value = known.product[f];
+        if ((next[f] as string).trim() === "" && value != null && value !== "") (next[f] as string) = String(value);
+      }
+      return next;
+    });
+  }
+
   // 名前からAIで調べる(仕様書 §8.2)。候補が1つならそのまま反映、複数なら選んでもらう
   async function research(snap: Snapshot): Promise<Snapshot> {
     setAiBusy("research");
     const result = await postAi<ResearchResponse>("/api/research", { kind, name: snap.values.name });
     if (result.candidates.length === 0) {
-      setMessage("見つかりませんでした。名前を変えて試すか、手入力でお願いします。");
+      setMessage("Nothing found. Try a different name, or fill it in by hand.");
       return snap;
     }
     if (result.candidates.length > 1) {
       setChoices(result);
       return snap;
     }
-    setInfo(result.cached ? "前に調べた結果を入れました。" : "AIが調べた値を空いている欄に入れました。");
+    setInfo(result.cached ? "Filled from an earlier search." : "Filled in by AI.");
     return withCandidate(snap, result.candidates[0]);
   }
 
   async function handleResearchClick() {
     if (!values.name.trim()) {
-      setMessage("先に商品名を入れてください。");
+      setMessage("Enter a name first.");
       return;
     }
     setMessage(null);
@@ -178,7 +211,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
   function handlePickCandidate(candidate: ResearchCandidate) {
     show(withCandidate(snapshot(), candidate));
     setChoices(null);
-    setInfo("AIが調べた値を空いている欄に入れました。");
+    setInfo("Filled in by AI.");
   }
 
   // チャットで入力(仕様書 §8.4): 文章を項目に分け、名前から調べ、新しい記録なら下書きとして保存する
@@ -196,15 +229,15 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           snap = await research(snap);
           show(snap);
         } catch (e) {
-          setMessage(`読み取りはできましたが、名前からの調査に失敗しました: ${(e as Error).message}`);
+          setMessage(`Your note was read, but the lookup failed: ${(e as Error).message}`);
         }
       }
       if (!snap.values.name.trim()) {
-        setInfo("商品名が読み取れませんでした。商品名を入れてから保存してください。");
+        setInfo("Couldn't find a name in your note. Add one before saving.");
       } else if (!isSavedRecord && (await persist("draft", false, snap))) {
-        setInfo("下書きに保存しました。内容を確認して「保存」を押してください。");
+        setInfo("Saved as a draft. Check it, then tap Save.");
       } else if (isSavedRecord) {
-        setInfo("読み取った内容を入れました。確認して「保存」を押してください。");
+        setInfo("Filled in from your note. Check it, then tap Save.");
       }
       return true;
     } catch (e) {
@@ -212,16 +245,6 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
       return false;
     } finally {
       setAiBusy(null);
-    }
-  }
-
-  async function handlePick(file: File) {
-    setMessage(null);
-    try {
-      const blob = await compressImage(file);
-      setImage({ type: "new", blob, previewUrl: URL.createObjectURL(blob) });
-    } catch {
-      setMessage("この写真は読み込めませんでした。別の写真をお試しください。");
     }
   }
 
@@ -259,39 +282,39 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
         imagePath = null;
       }
 
-      const base = drinkPayload(kind, snap.values, status);
+      const { product, tasting } = drinkPayload(kind, snap.values, status);
 
       // 地図のピン用に、場所が変わったとき(または未取得のとき)だけ緯度経度を調べる(仕様書 §8.5)
-      const place = { address: base.maker_address, prefecture: base.prefecture, country: base.country };
+      const place = { address: product.maker_address, region: product.region, country: product.country };
       const key = locationKey(place);
       let position = record && record.locationKey === key && record.lat != null ? { lat: record.lat, lng: record.lng } : null;
       if (!position) position = await geocodeOnClient(place);
 
-      const payload = {
-        ...base,
-        lat: position?.lat ?? null,
-        lng: position?.lng ?? null,
-        image_path: imagePath,
-        ai_filled_fields: snap.aiFilled,
-        sources: snap.sources,
-      };
-      const { error } = record
-        ? await supabase.from("drinks").update(payload).eq("id", id)
-        : await supabase.from("drinks").insert({ id, ...payload });
-      if (error) throw error;
+      const { productId } = await saveDrink(supabase, {
+        tastingId: id,
+        currentProductId: record?.productId ?? null,
+        product: {
+          ...product,
+          lat: position?.lat ?? null,
+          lng: position?.lng ?? null,
+          ai_filled_fields: snap.aiFilled,
+          sources: snap.sources,
+        },
+        tasting: { ...tasting, image_path: imagePath },
+      });
 
       if (navigate) {
         router.push(status === "saved" ? `/${kind}/list?done=saved` : `/${kind}/drafts?done=draft`);
         router.refresh();
       } else {
         // この画面に残るので、保存した状態を「変更なし」の基準にする
-        setRecord({ status, image_path: imagePath, lat: payload.lat, lng: payload.lng, locationKey: key });
+        setRecord({ status, productId, image_path: imagePath, lat: position?.lat ?? null, lng: position?.lng ?? null, locationKey: key });
         setImage({ type: "keep" });
         setBaseline({ values: snap.values, sources: snap.sources });
       }
       return true;
     } catch {
-      setMessage(errorMessage("保存できませんでした。もう一度お試しください。"));
+      setMessage(errorMessage("Couldn't save. Please try again."));
       return false;
     } finally {
       setSaving(null);
@@ -303,11 +326,11 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     setConfirmDelete(false);
     setSaving("delete");
     try {
-      await deleteDrink(createClient(), id, record.image_path);
+      await deleteTasting(createClient(), { tastingId: id, productId: record.productId, imagePath: record.image_path });
       router.push(`/${kind}/drafts?done=deleted`);
       router.refresh();
     } catch {
-      setMessage(errorMessage("削除できませんでした。もう一度お試しください。"));
+      setMessage(errorMessage("Couldn't delete. Please try again."));
       setSaving(null);
     }
   }
@@ -316,299 +339,320 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
     {
       isDirty: () => dirty && saving == null,
       save: () => persist(isSavedRecord ? "saved" : "draft", false),
-      saveLabel: isSavedRecord ? "保存して移動" : "下書きに保存して移動",
-      title: isSavedRecord ? "変更を保存しますか?" : "入力中の内容は下書きに保存しますか?",
+      saveLabel: isSavedRecord ? "Save" : "Save draft",
+      title: isSavedRecord ? "Save your changes?" : "Save as a draft?",
     },
     dirty,
   );
 
   const previewUrl = image.type === "new" ? image.previewUrl : image.type === "remove" ? null : (imageUrl ?? null);
-  const icon = iconTypeOf({ kind, beer_family: beerFamilyOf(values.category) });
+  const icon = iconOf({ kind, beer_family: beerFamilyOf(values.category), category: values.category });
   const busy = saving != null || aiBusy != null;
-  const makerLabel = kind === "beer" ? "醸造所" : "酒蔵";
+  const isJapan = values.country.trim().toLowerCase() === "japan";
 
   return (
     <AiFilledContext.Provider value={aiFilled}>
-    <form className="flex flex-col gap-5" onSubmit={(e) => (e.preventDefault(), persist("saved", true))} noValidate>
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{drink ? "記録を編集" : "記録する"}</h1>
-        <QuickInputSheet kind={kind} busy={aiBusy} onSubmit={handleQuickInput} />
-      </div>
+      <form className="flex flex-col gap-5" onSubmit={(e) => (e.preventDefault(), persist("saved", true))} noValidate>
+        <div className="flex items-center justify-between">
+          <h1 className="text-[20px] font-medium tracking-tight">{drink ? "Edit" : "New entry"}</h1>
+          <QuickInputSheet kind={kind} busy={aiBusy} onSubmit={handleQuickInput} />
+        </div>
 
-      {/* 1〜2. 写真と商品名 */}
-      <div className="flex items-start gap-4">
-        <ImagePicker
-          url={previewUrl}
-          icon={icon}
-          onPick={handlePick}
-          onRemove={() => setImage(record?.image_path ? { type: "remove" } : { type: "keep" })}
-        />
-        <Field label="商品名" field="name" error={errors.name} required className="flex-1">
-          <textarea
-            id="field-name"
-            rows={2}
-            value={values.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder={kind === "beer" ? "例: ○○ペールエール" : "例: ○○ 純米吟醸"}
-            className={inputClass(errors.name)}
+        {/* 写真と商品名 */}
+        <div className="flex items-start gap-4">
+          <ImagePicker
+            url={previewUrl}
+            icon={icon}
+            onPick={(blob) => setImage({ type: "new", blob, previewUrl: URL.createObjectURL(blob) })}
+            onRemove={() => setImage(record?.image_path ? { type: "remove" } : { type: "keep" })}
+            onError={setMessage}
           />
-          <ResearchButton loading={aiBusy === "research"} disabled={busy} onClick={handleResearchClick} />
-          {info && <p className="text-[13px] text-(--color-text-sub)">{info}</p>}
-        </Field>
-      </div>
+          <Field label="Name" field="name" error={errors.name} required className="flex-1">
+            <textarea
+              id="field-name"
+              rows={2}
+              value={values.name}
+              onChange={(e) => set("name", e.target.value)}
+              onBlur={handleNameBlur}
+              placeholder={kind === "beer" ? "e.g. Hazy Morning IPA" : "e.g. Tsukimigawa Junmai Ginjo"}
+              className={inputClass(errors.name)}
+            />
+            {knownCount != null && knownCount > 0 && (
+              <p className="text-[12px] text-(--color-accent-text)">
+                Tasted before · {knownCount}× — details filled from your earlier entry
+              </p>
+            )}
+            <ResearchButton loading={aiBusy === "research"} disabled={busy} onClick={handleResearchClick} />
+            {info && <p className="text-[12px] text-(--color-text-sub)">{info}</p>}
+          </Field>
+        </div>
 
-      {/* 4. 種類ごとの項目 */}
-      <Field label={kind === "beer" ? "カテゴリ" : "特定名称"} field="category" error={errors.category} required>
-        <select
-          id="field-category"
-          value={values.category}
-          onChange={(e) => set("category", e.target.value)}
-          className={inputClass(errors.category)}
-        >
-          <option value="">選んでください</option>
-          {(kind === "beer" ? BEER_CATEGORIES.map((c) => c.label) : SAKE_CATEGORIES).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        {kind === "beer" && values.category && (
-          <p className="text-[13px] text-(--color-text-sub)">系統: {BEER_FAMILY_LABELS[beerFamilyOf(values.category)!]}</p>
-        )}
-      </Field>
+        <Section title="Rating">
+          <Field label="Overall" field="rating" error={errors.rating} required>
+            <StarRating id="field-rating" label="Overall" value={values.rating} onChange={(v) => set("rating", v)} invalid={!!errors.rating} />
+          </Field>
+          {kind === "beer" && (
+            <Field label="Bitterness" field="bitterness">
+              <StarRating label="Bitterness" value={values.bitterness} onChange={(v) => set("bitterness", v)} size={26} />
+            </Field>
+          )}
+          {kind === "sake" && (
+            <>
+              <Field label="Sweet — Dry" field="sweet_dry">
+                <Slider5 label="Sweet to dry" left="Sweet" right="Dry" value={values.sweet_dry} onChange={(v) => set("sweet_dry", v)} />
+              </Field>
+              <Field label="Light — Rich" field="light_rich">
+                <Slider5 label="Light to rich" left="Light" right="Rich" value={values.light_rich} onChange={(v) => set("light_rich", v)} />
+              </Field>
+            </>
+          )}
+          <Field label="Aroma" field="aroma">
+            <StarRating label="Aroma" value={values.aroma} onChange={(v) => set("aroma", v)} size={26} />
+          </Field>
+          {kind === "sake" && (
+            <Field label="Served" field="serving_temp">
+              <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Served">
+                {SERVING_TEMPS.map((t) => {
+                  const active = values.serving_temp === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => set("serving_temp", active ? null : t.value)}
+                      className={`min-h-10 rounded-full border text-[13px] ${
+                        active
+                          ? "border-(--color-primary) bg-(--color-primary) font-medium text-(--color-on-primary)"
+                          : "border-(--color-border) bg-(--color-surface) text-(--color-text-sub)"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          )}
+        </Section>
 
-      <Field label="日付" field="drunk_on" error={errors.drunk_on} required>
-        <input
-          id="field-drunk_on"
-          type="date"
-          value={values.drunk_on}
-          onChange={(e) => set("drunk_on", e.target.value)}
-          className={inputClass(errors.drunk_on)}
-        />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-3">
-        <NumberField label="度数" unit="%" field="abv" values={values} errors={errors} set={set} />
-        {kind === "sake" && <NumberField label="精米歩合" unit="%" field="polish_ratio" values={values} errors={errors} set={set} integer />}
-        {kind === "sake" && <NumberField label="日本酒度" field="sake_meter" values={values} errors={errors} set={set} placeholder="例: +3 / -2" />}
-        {kind === "sake" && <NumberField label="酸度" field="acidity" values={values} errors={errors} set={set} />}
-      </div>
-
-      {kind === "sake" && (
-        <Field label="酒米" field="rice">
-          <input id="field-rice" value={values.rice} onChange={(e) => set("rice", e.target.value)} placeholder="例: 山田錦" className={inputClass()} />
-        </Field>
-      )}
-
-      <div className="grid grid-cols-[1fr_1.3fr] gap-3">
-        <NumberField label="値段" unit="円" field="price_yen" values={values} errors={errors} set={set} integer />
-        <Field label="容量など" field="price_note">
-          <input
-            id="field-price_note"
-            value={values.price_note}
-            onChange={(e) => set("price_note", e.target.value)}
-            placeholder={kind === "beer" ? "例: 350ml缶" : "例: 720ml"}
-            className={inputClass()}
-          />
-        </Field>
-      </div>
-
-      <Field label={makerLabel} field="maker">
-        <input id="field-maker" value={values.maker} onChange={(e) => set("maker", e.target.value)} className={inputClass()} />
-      </Field>
-
-      <Field label={`${makerLabel}の場所`} field="maker_address" hint="住所や都市名(地図のピンに使います)">
-        <input
-          id="field-maker_address"
-          value={values.maker_address}
-          onChange={(e) => set("maker_address", e.target.value)}
-          placeholder="例: 新潟県長岡市"
-          className={inputClass()}
-        />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="国" field="country" hint="一覧の「産地」に使います">
-          <input
-            id="field-country"
-            list="country-suggestions"
-            value={values.country}
-            onChange={(e) => set("country", e.target.value)}
-            placeholder="例: 日本"
-            className={inputClass()}
-          />
-          <datalist id="country-suggestions">
-            {COUNTRY_SUGGESTIONS.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-        </Field>
-        {values.country.trim() === "日本" && (
-          <Field label="都道府県" field="prefecture">
+        <Section title="Drink">
+          <Field label={kind === "beer" ? "Style" : "Grade"} field="category" error={errors.category} required>
             <select
-              id="field-prefecture"
-              value={values.prefecture}
-              onChange={(e) => set("prefecture", e.target.value)}
-              className={inputClass()}
+              id="field-category"
+              value={values.category}
+              onChange={(e) => set("category", e.target.value)}
+              className={inputClass(errors.category)}
             >
-              <option value="">選んでください</option>
-              {PREFECTURES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              <option value="">Choose…</option>
+              {(kind === "beer" ? BEER_CATEGORIES.map((c) => c.label) : SAKE_CATEGORIES).map((c) => (
+                <option key={c} value={c}>
+                  {c}
                 </option>
               ))}
             </select>
+            {kind === "beer" && values.category && (
+              <p className="text-[12px] text-(--color-text-sub)">{BEER_FAMILY_LABELS[beerFamilyOf(values.category)!]}</p>
+            )}
           </Field>
-        )}
-      </div>
 
-      <section className="flex flex-col gap-4 rounded-xl bg-(--color-surface) p-4 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
-        <Field label="総合評価" field="rating" error={errors.rating} required>
-          <StarRating id="field-rating" label="総合評価" value={values.rating} onChange={(v) => set("rating", v)} invalid={!!errors.rating} />
-        </Field>
-        {kind === "beer" && (
-          <Field label="苦み" field="bitterness">
-            <StarRating label="苦み" value={values.bitterness} onChange={(v) => set("bitterness", v)} size={30} />
-          </Field>
-        )}
-        {kind === "sake" && (
-          <>
-            <Field label="甘口〜辛口" field="sweet_dry">
-              <Slider5 label="甘口〜辛口" left="甘口" right="辛口" value={values.sweet_dry} onChange={(v) => set("sweet_dry", v)} />
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField label="ABV" unit="%" field="abv" values={values} errors={errors} set={set} />
+            {kind === "sake" && <NumberField label="Polishing" unit="%" field="polish_ratio" values={values} errors={errors} set={set} integer />}
+            {kind === "sake" && <NumberField label="SMV" field="sake_meter" values={values} errors={errors} set={set} placeholder="+3 / -2" />}
+            {kind === "sake" && <NumberField label="Acidity" field="acidity" values={values} errors={errors} set={set} />}
+          </div>
+
+          {kind === "sake" && (
+            <Field label="Rice" field="rice">
+              <input id="field-rice" value={values.rice} onChange={(e) => set("rice", e.target.value)} placeholder="e.g. Yamada Nishiki" className={inputClass()} />
             </Field>
-            <Field label="淡麗〜濃醇" field="light_rich">
-              <Slider5 label="淡麗〜濃醇" left="淡麗" right="濃醇" value={values.light_rich} onChange={(v) => set("light_rich", v)} />
+          )}
+
+          <div className="grid grid-cols-[1fr_1.3fr] gap-3">
+            <NumberField label="Price" unit="¥" field="price_yen" values={values} errors={errors} set={set} integer />
+            <Field label="Size" field="price_note">
+              <input
+                id="field-price_note"
+                value={values.price_note}
+                onChange={(e) => set("price_note", e.target.value)}
+                placeholder={kind === "beer" ? "350ml can" : "720ml"}
+                className={inputClass()}
+              />
             </Field>
-          </>
-        )}
-        <Field label="香り" field="aroma">
-          <StarRating label="香り" value={values.aroma} onChange={(v) => set("aroma", v)} size={30} />
-        </Field>
-        {kind === "sake" && (
-          <Field label="飲んだ温度" field="serving_temp">
-            <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="飲んだ温度">
-              {SERVING_TEMPS.map((t) => {
-                const active = values.serving_temp === t.value;
-                return (
-                  <button
-                    key={t.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => set("serving_temp", active ? null : t.value)}
-                    className={`min-h-11 rounded-xl border text-[15px] ${
-                      active
-                        ? "border-(--color-primary) bg-(--color-primary) font-bold text-(--color-on-primary)"
-                        : "border-(--color-border) bg-(--color-surface)"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+          </div>
+        </Section>
+
+        <Section title="Origin">
+          <Field label="Brewery" field="maker">
+            <input id="field-maker" value={values.maker} onChange={(e) => set("maker", e.target.value)} className={inputClass()} />
           </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Country" field="country">
+              <input
+                id="field-country"
+                list="country-suggestions"
+                value={values.country}
+                onChange={(e) => set("country", e.target.value)}
+                placeholder="Japan"
+                className={inputClass()}
+              />
+              <datalist id="country-suggestions">
+                {COUNTRY_SUGGESTIONS.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </Field>
+            <Field label={isJapan ? "Prefecture" : "Region"} field="region">
+              {isJapan ? (
+                <select id="field-region" value={values.region} onChange={(e) => set("region", e.target.value)} className={inputClass()}>
+                  <option value="">Choose…</option>
+                  {PREFECTURES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="field-region"
+                  value={values.region}
+                  onChange={(e) => set("region", e.target.value)}
+                  placeholder="Ontario"
+                  className={inputClass()}
+                />
+              )}
+            </Field>
+          </div>
+
+          <Field label="Address" field="maker_address" hint="Used for the map pin">
+            <input
+              id="field-maker_address"
+              value={values.maker_address}
+              onChange={(e) => set("maker_address", e.target.value)}
+              placeholder="City, state"
+              className={inputClass()}
+            />
+          </Field>
+        </Section>
+
+        <Section title="Tasting">
+          <Field label="Date" field="drunk_on" error={errors.drunk_on} required>
+            <input
+              id="field-drunk_on"
+              type="date"
+              value={values.drunk_on}
+              onChange={(e) => set("drunk_on", e.target.value)}
+              className={inputClass(errors.drunk_on)}
+            />
+          </Field>
+          <Field label="Notes" field="comment">
+            <textarea
+              id="field-comment"
+              rows={3}
+              value={values.comment}
+              onChange={(e) => set("comment", e.target.value)}
+              placeholder="Taste, food pairing, where you had it…"
+              className={inputClass()}
+            />
+          </Field>
+        </Section>
+
+        {sources.length > 0 && (
+          <details className="rounded-2xl border border-(--color-border) bg-(--color-surface) px-4 py-3 text-[13px]">
+            <summary className="cursor-pointer text-(--color-text-sub)">Sources ({sources.length})</summary>
+            <ul className="mt-2 flex flex-col gap-1">
+              {sources.map((s) => (
+                <li key={s.url}>
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-(--color-accent-text) underline underline-offset-2">
+                    {s.title || s.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
-      </section>
 
-      {/* 5. フリーコメント */}
-      <Field label="コメント" field="comment">
-        <textarea
-          id="field-comment"
-          rows={4}
-          value={values.comment}
-          onChange={(e) => set("comment", e.target.value)}
-          placeholder="味の感想、合わせた料理など"
-          className={inputClass()}
-        />
-      </Field>
+        {message && (
+          <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-[13px] text-(--color-danger)">
+            {message}
+          </p>
+        )}
 
-      {sources.length > 0 && (
-        <details className="rounded-xl bg-(--color-surface) p-4 text-[13px]">
-          <summary className="cursor-pointer font-bold">参考にしたページ({sources.length})</summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {sources.map((s) => (
-              <li key={s.url}>
-                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-(--color-accent-text) underline">
-                  {s.title || s.url}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+        <div className="flex gap-2">
+          {!isSavedRecord && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => persist("draft", true)}
+              className="min-h-11 flex-1 rounded-full border border-(--color-border) bg-(--color-surface) text-[14px] font-medium disabled:opacity-50"
+            >
+              {saving === "draft" ? "Saving…" : "Save draft"}
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="min-h-11 flex-1 rounded-full bg-(--color-primary) text-[14px] font-medium text-(--color-on-primary) disabled:opacity-50"
+          >
+            {saving === "saved" ? "Saving…" : "Save"}
+          </button>
+        </div>
 
-      {message && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
-          {message}
-        </p>
-      )}
-
-      {/* 6. ボタン */}
-      <div className="flex gap-3">
-        {!isSavedRecord && (
+        {record && !isSavedRecord && (
           <button
             type="button"
             disabled={busy}
-            onClick={() => persist("draft", true)}
-            className="min-h-12 flex-1 rounded-xl border border-(--color-border) bg-(--color-surface) font-bold disabled:opacity-60"
+            onClick={() => setConfirmDelete(true)}
+            className="min-h-10 self-center px-4 text-[13px] text-(--color-danger) disabled:opacity-50"
           >
-            {saving === "draft" ? "保存しています…" : "下書き保存"}
+            {saving === "delete" ? "Deleting…" : "Delete draft"}
           </button>
         )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="min-h-12 flex-1 rounded-xl bg-(--color-primary) font-bold text-(--color-on-primary) disabled:opacity-60"
-        >
-          {saving === "saved" ? "保存しています…" : "保存"}
-        </button>
-      </div>
 
-      {record && !isSavedRecord && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setConfirmDelete(true)}
-          className="min-h-11 self-center px-4 text-red-700 underline disabled:opacity-60"
-        >
-          {saving === "delete" ? "削除しています…" : "この下書きを削除"}
-        </button>
-      )}
+        <ConfirmDialog
+          open={choices != null}
+          title="Which one?"
+          message={choices?.note ?? "Several drinks matched. Pick one."}
+          onClose={() => setChoices(null)}
+          actions={[
+            ...(choices?.candidates ?? []).map((c, i) => ({
+              label: `${i + 1}. ${c.name}${c.category ? ` · ${c.category}` : ""}`,
+              onClick: () => handlePickCandidate(c),
+            })),
+            { label: "Cancel", onClick: () => setChoices(null) },
+          ]}
+        />
 
-      <ConfirmDialog
-        open={choices != null}
-        title="どの商品ですか?"
-        message={choices?.note ?? "同じ名前の商品がいくつか見つかりました。"}
-        onClose={() => setChoices(null)}
-        actions={[
-          ...(choices?.candidates ?? []).map((c, i) => ({
-            label: `${i + 1}. ${c.name}${c.maker ? `(${c.maker})` : ""}`,
-            onClick: () => handlePickCandidate(c),
-          })),
-          { label: "キャンセル", onClick: () => setChoices(null) },
-        ]}
-      />
-
-      <ConfirmDialog
-        open={confirmDelete}
-        title="この下書きを削除しますか?"
-        message="写真も一緒に消え、元に戻せません。"
-        onClose={() => setConfirmDelete(false)}
-        actions={[
-          { label: "削除する", variant: "danger", onClick: handleDeleteDraft },
-          { label: "キャンセル", onClick: () => setConfirmDelete(false) },
-        ]}
-      />
-    </form>
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Delete this draft?"
+          message="The photo will be deleted too. This can't be undone."
+          onClose={() => setConfirmDelete(false)}
+          actions={[
+            { label: "Delete", variant: "danger", onClick: handleDeleteDraft },
+            { label: "Cancel", onClick: () => setConfirmDelete(false) },
+          ]}
+        />
+      </form>
     </AiFilledContext.Provider>
   );
 }
 
 function inputClass(error?: string) {
-  return `min-h-11 w-full rounded-xl border bg-(--color-surface) px-3 py-2 text-base ${
-    error ? "border-red-600 ring-1 ring-red-600" : "border-(--color-border)"
+  return `min-h-11 w-full rounded-xl border bg-(--color-surface) px-3 py-2 text-[15px] outline-none focus:border-(--color-primary) ${
+    error ? "border-(--color-danger)" : "border-(--color-border)"
   }`;
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-4 rounded-2xl border border-(--color-border) bg-(--color-surface) p-4">
+      <h2 className="text-[11px] font-medium tracking-[0.1em] text-(--color-text-sub) uppercase">{title}</h2>
+      {children}
+    </section>
+  );
 }
 
 function Field({
@@ -628,25 +672,23 @@ function Field({
   className?: string;
   children: ReactNode;
 }) {
+  const ai = useContext(AiFilledContext).includes(field);
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <div className="flex items-center justify-between">
-        <label htmlFor={`field-${field}`} className="text-[13px] font-bold text-(--color-text-sub)">
+        <label htmlFor={`field-${field}`} className="text-[12px] text-(--color-text-sub)">
           {label}
-          {required && <span className="ml-1 text-red-700">*</span>}
+          {required && <span className="ml-0.5 text-(--color-danger)">*</span>}
         </label>
-        {useContext(AiFilledContext).includes(field) && (
-          <span
-            title="AIが入れた値です"
-            className="rounded-full bg-(--color-secondary) px-2 py-0.5 text-[11px] font-bold text-(--color-text)"
-          >
+        {ai && (
+          <span title="Filled in by AI" className="rounded-full bg-(--color-primary-soft) px-1.5 py-px text-[10px] font-medium tracking-wide text-(--color-accent-text)">
             AI
           </span>
         )}
       </div>
       {children}
-      {hint && !error && <p className="text-[13px] text-(--color-text-sub)">{hint}</p>}
-      {error && <p className="text-[13px] text-red-700">{error}</p>}
+      {hint && !error && <p className="text-[11px] text-(--color-text-sub)">{hint}</p>}
+      {error && <p className="text-[12px] text-(--color-danger)">{error}</p>}
     </div>
   );
 }
@@ -671,7 +713,7 @@ function NumberField({
   placeholder?: string;
 }) {
   return (
-    <Field label={unit ? `${label}(${unit})` : label} field={field} error={errors[field]}>
+    <Field label={unit ? `${label} (${unit})` : label} field={field} error={errors[field]}>
       <input
         id={`field-${field}`}
         // 日本酒度はマイナスを打てるよう、数字専用キーボードにしない

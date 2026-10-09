@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function loadDrinkOr404(kind: string, id: string) {
   if (!isKind(kind) || !UUID.test(id)) notFound();
   const supabase = await createClient();
-  const { data } = await supabase.from("drinks").select("*").eq("id", id).eq("kind", kind).maybeSingle();
+  const { data } = await supabase.from("drink_records").select("*").eq("id", id).eq("kind", kind).maybeSingle();
   if (!data) notFound();
   const drink = data as Drink;
 
@@ -20,5 +20,13 @@ export async function loadDrinkOr404(kind: string, id: string) {
     const { data: signed } = await supabase.storage.from(IMAGE_BUCKET).createSignedUrl(drink.image_path, 60 * 60);
     imageUrl = signed?.signedUrl ?? null;
   }
-  return { drink, imageUrl };
+  // 同じ銘柄の、ほかに飲んだ記録(新しい順)
+  const { data: history } = await supabase
+    .from("drink_records")
+    .select("id, drunk_on, rating, status")
+    .eq("product_id", drink.product_id)
+    .neq("id", drink.id)
+    .order("drunk_on", { ascending: false });
+
+  return { drink, imageUrl, history: (history ?? []) as Pick<Drink, "id" | "drunk_on" | "rating" | "status">[] };
 }

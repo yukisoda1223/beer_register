@@ -1,4 +1,4 @@
-import { DrinkIcon, type DrinkIconType } from "@/components/DrinkIcon";
+import { DrinkIcon, type IconSpec } from "@/components/DrinkIcon";
 
 // 写真があれば写真、なければカテゴリのアイコン(仕様書 §6.5)
 export function DrinkImage({
@@ -9,7 +9,7 @@ export function DrinkImage({
   alt = "",
 }: {
   url: string | null | undefined;
-  icon: DrinkIconType;
+  icon: IconSpec;
   size: number;
   rounded?: string;
   alt?: string;
@@ -17,7 +17,7 @@ export function DrinkImage({
   if (!url) {
     return (
       <span className={`block shrink-0 overflow-hidden ${rounded}`} style={{ width: size, height: size }}>
-        <DrinkIcon type={icon} size={size} />
+        <DrinkIcon {...icon} size={size} />
       </span>
     );
   }

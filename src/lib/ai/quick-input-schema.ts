@@ -4,14 +4,14 @@ import type { ServingTemp } from "@/lib/drink";
 import type { Kind } from "@/lib/kinds";
 
 export const quickInputSchema = z.object({
-  name: z.string().nullable().describe("銘柄名・商品名。書かれていなければ null"),
-  rating: z.number().nullable().describe("総合評価 0.5〜5(0.5刻み)"),
-  bitterness: z.number().nullable().describe("苦み 0.5〜5(0.5刻み、ビールのみ)"),
-  aroma: z.number().nullable().describe("香り 0.5〜5(0.5刻み)"),
-  sweet_dry: z.number().nullable().describe("1=甘口〜5=辛口(整数、日本酒のみ)"),
-  light_rich: z.number().nullable().describe("1=淡麗〜5=濃醇(整数、日本酒のみ)"),
-  serving_temp: z.enum(["cold", "room", "warm", "hot"]).nullable().describe("飲んだ温度(日本酒のみ)"),
-  comment: z.string().nullable().describe("上の項目に入らなかった感想(料理との相性など)"),
+  name: z.string().nullable().describe("Product name, or null"),
+  rating: z.number().nullable().describe("Overall rating 0.5-5 in 0.5 steps"),
+  bitterness: z.number().nullable().describe("Bitterness 0.5-5 in 0.5 steps (beer only)"),
+  aroma: z.number().nullable().describe("Aroma 0.5-5 in 0.5 steps"),
+  sweet_dry: z.number().nullable().describe("1 = sweet to 5 = dry, integer (sake only)"),
+  light_rich: z.number().nullable().describe("1 = light to 5 = rich, integer (sake only)"),
+  serving_temp: z.enum(["cold", "room", "warm", "hot"]).nullable().describe("Serving temperature (sake only)"),
+  comment: z.string().nullable().describe("Remaining impressions (food pairing etc.)"),
 });
 
 export type QuickInput = {

@@ -1,23 +1,26 @@
-// 写真をアップロードする前にブラウザで縮小する(長辺1280px・WebP)
+// 写真をアップロードする前にブラウザで整える。正方形(1:1)に切り抜き、一辺最大1280px・WebP にする
 const MAX_SIDE = 1280;
 
-export async function compressImage(file: File): Promise<Blob> {
+export type CropArea = { x: number; y: number; width: number; height: number };
+
+// area は元の写真の上での切り抜き範囲(ピクセル)。省略すると中央を正方形に切り抜く
+export async function cropToSquare(file: Blob, area?: CropArea): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const src = area ?? { x: (bitmap.width - side) / 2, y: (bitmap.height - side) / 2, width: side, height: side };
+  const out = Math.round(Math.min(MAX_SIDE, src.width));
 
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, width, height);
+  canvas.width = out;
+  canvas.height = out;
+  canvas.getContext("2d")!.drawImage(bitmap, src.x, src.y, src.width, src.height, 0, 0, out, out);
   bitmap.close();
 
-  const webp = await toBlob(canvas, "image/webp", 0.8);
+  const webp = await toBlob(canvas, "image/webp", 0.82);
   if (webp?.type === "image/webp") return webp;
   // WebP で書き出せないブラウザ(一部の iPhone など)は JPEG にする
   const jpeg = await toBlob(canvas, "image/jpeg", 0.85);
-  if (!jpeg) throw new Error("写真を変換できませんでした");
+  if (!jpeg) throw new Error("Could not process the photo");
   return jpeg;
 }
 

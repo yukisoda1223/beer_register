@@ -14,8 +14,8 @@ export function KindToggle({ kind }: { kind: Kind }) {
 
   return (
     <nav
-      aria-label="お酒の種類"
-      className="inline-flex rounded-full border border-(--color-border) bg-(--color-surface) p-1 shadow-sm"
+      aria-label="Drink type"
+      className="inline-flex rounded-full border border-(--color-border) bg-(--color-surface) p-0.5"
     >
       {KINDS.map((k) => {
         const active = k === kind;
@@ -30,9 +30,9 @@ export function KindToggle({ kind }: { kind: Kind }) {
               requestLeave(() => router.push(href));
             }}
             aria-current={active ? "page" : undefined}
-            className={`flex min-h-11 min-w-24 items-center justify-center rounded-full px-5 text-base font-bold transition-colors ${
+            className={`flex min-h-10 min-w-20 items-center justify-center rounded-full px-4 text-[14px] tracking-wide transition-colors ${
               active
-                ? "bg-(--color-primary) text-(--color-on-primary)"
+                ? "bg-(--color-primary) font-medium text-(--color-on-primary)"
                 : "text-(--color-text-sub) hover:text-(--color-text)"
             }`}
           >

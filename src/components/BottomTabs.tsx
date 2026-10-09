@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import type { Kind } from "@/lib/kinds";
 
 const TABS = [
-  { screen: "report", label: "レポート", icon: ReportIcon },
-  { screen: "list", label: "一覧", icon: ListIcon },
+  { screen: "report", label: "Report", icon: ReportIcon },
+  { screen: "list", label: "List", icon: ListIcon },
 ] as const;
 
 // 下タブ。レポート・一覧の画面だけに出す(記録・下書き・地図の画面では隠す)
@@ -17,7 +17,7 @@ export function BottomTabs({ kind }: { kind: Kind }) {
 
   return (
     <nav
-      aria-label="メインメニュー"
+      aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[480px] border-t border-(--color-border) bg-(--color-surface) pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="grid grid-cols-2">
@@ -28,12 +28,12 @@ export function BottomTabs({ kind }: { kind: Kind }) {
               <Link
                 href={`/${kind}/${s}`}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[13px] ${
-                  active ? "font-bold text-(--color-text)" : "text-(--color-text-sub)"
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] tracking-wide ${
+                  active ? "font-medium text-(--color-text)" : "text-(--color-text-sub)"
                 }`}
               >
                 {active && (
-                  <span className="absolute inset-x-8 top-0 h-1 rounded-b-full bg-(--color-primary)" />
+                  <span className="absolute inset-x-12 top-0 h-0.5 rounded-b-full bg-(--color-primary)" />
                 )}
                 <Icon active={active} />
                 {label}

@@ -1,37 +1,40 @@
-// 選択肢マスタ(仕様書 §6)
+// 選択肢マスタ(仕様書 §6)。画面・データとも英語
 import type { BeerFamily, ServingTemp } from "@/lib/drink";
 
-// 6.1 ビールのカテゴリと系統
-export const BEER_CATEGORIES: { label: string; family: BeerFamily }[] = [
-  { label: "ピルスナー", family: "lager" },
-  { label: "ラガー(その他)", family: "lager" },
-  { label: "ヘレス", family: "lager" },
-  { label: "ボック", family: "lager" },
-  { label: "ラオホ", family: "lager" },
-  { label: "ペールエール", family: "ale" },
-  { label: "IPA", family: "ale" },
-  { label: "セッションIPA", family: "ale" },
-  { label: "ヘイジーIPA", family: "ale" },
-  { label: "ダブルIPA", family: "ale" },
-  { label: "ヴァイツェン", family: "ale" },
-  { label: "ベルジャンホワイト", family: "ale" },
-  { label: "セゾン", family: "ale" },
-  { label: "アンバーエール", family: "ale" },
-  { label: "ブラウンエール", family: "ale" },
-  { label: "ポーター", family: "ale" },
-  { label: "スタウト", family: "ale" },
-  { label: "ケルシュ", family: "ale" },
-  { label: "トリペル", family: "ale" },
-  { label: "バーレイワイン", family: "ale" },
-  { label: "サワーエール", family: "other" },
-  { label: "フルーツビール", family: "other" },
-  { label: "その他", family: "other" },
+// 6.1 ビールのスタイルと系統。color はアイコンのビールの色(写真がないとき)
+export const BEER_CATEGORIES: { label: string; family: BeerFamily; color: string }[] = [
+  { label: "Pilsner", family: "lager", color: "#E9B949" },
+  { label: "Lager", family: "lager", color: "#E3A93A" },
+  { label: "Helles", family: "lager", color: "#F0CB5E" },
+  { label: "Bock", family: "lager", color: "#8C4A1C" },
+  { label: "Rauchbier", family: "lager", color: "#5E2E14" },
+  { label: "Schwarzbier", family: "lager", color: "#2A1A12" },
+  { label: "Pale Ale", family: "ale", color: "#D4892F" },
+  { label: "IPA", family: "ale", color: "#C97A26" },
+  { label: "Session IPA", family: "ale", color: "#DDA041" },
+  { label: "Hazy IPA", family: "ale", color: "#EDB34A" },
+  { label: "Double IPA", family: "ale", color: "#B8641D" },
+  { label: "Weizen", family: "ale", color: "#EFC25C" },
+  { label: "Witbier", family: "ale", color: "#F3D98A" },
+  { label: "Saison", family: "ale", color: "#E2A845" },
+  { label: "Amber Ale", family: "ale", color: "#A8521E" },
+  { label: "Brown Ale", family: "ale", color: "#6E3518" },
+  { label: "Porter", family: "ale", color: "#3B2216" },
+  { label: "Stout", family: "ale", color: "#1E1410" },
+  { label: "Kölsch", family: "ale", color: "#F2CF66" },
+  { label: "Cream Ale", family: "ale", color: "#EFCB6C" },
+  { label: "Tripel", family: "ale", color: "#E0A238" },
+  { label: "Barleywine", family: "ale", color: "#8A3A16" },
+  { label: "Sour Ale", family: "other", color: "#D9775A" },
+  { label: "Fruit Beer", family: "other", color: "#C8495A" },
+  { label: "Radler", family: "other", color: "#F2C94C" },
+  { label: "Other", family: "other", color: "#C9A16A" },
 ];
 
 export const BEER_FAMILY_LABELS: Record<BeerFamily, string> = {
-  ale: "エール系",
-  lager: "ラガー系",
-  other: "その他",
+  ale: "Ale",
+  lager: "Lager",
+  other: "Other",
 };
 
 export function beerFamilyOf(category: string | null | undefined): BeerFamily | null {
@@ -39,44 +42,58 @@ export function beerFamilyOf(category: string | null | undefined): BeerFamily | 
   return BEER_CATEGORIES.find((c) => c.label === category)?.family ?? "other";
 }
 
+// ビールの色(スタイルが分からなければ系統の代表色)
+export function beerColorOf(category: string | null | undefined, family?: BeerFamily | null): string {
+  const found = BEER_CATEGORIES.find((c) => c.label === category);
+  if (found) return found.color;
+  if (family === "lager") return "#E3A93A";
+  if (family === "ale") return "#A8521E";
+  return "#C9A16A";
+}
+
 // 6.2 日本酒の特定名称
 export const SAKE_CATEGORIES = [
-  "純米大吟醸",
-  "純米吟醸",
-  "特別純米",
-  "純米",
-  "大吟醸",
-  "吟醸",
-  "特別本醸造",
-  "本醸造",
-  "普通酒",
-  "その他",
+  "Junmai Daiginjo",
+  "Junmai Ginjo",
+  "Tokubetsu Junmai",
+  "Junmai",
+  "Daiginjo",
+  "Ginjo",
+  "Tokubetsu Honjozo",
+  "Honjozo",
+  "Futsushu",
+  "Other",
 ];
 
 // 6.3 飲んだ温度(日本酒)
 export const SERVING_TEMPS: { value: ServingTemp; label: string }[] = [
-  { value: "cold", label: "冷酒" },
-  { value: "room", label: "常温" },
-  { value: "warm", label: "ぬる燗" },
-  { value: "hot", label: "熱燗" },
+  { value: "cold", label: "Chilled" },
+  { value: "room", label: "Room" },
+  { value: "warm", label: "Warm" },
+  { value: "hot", label: "Hot" },
 ];
 
-// 6.4 都道府県(北から順)
+export const SERVING_TEMP_LABELS = Object.fromEntries(SERVING_TEMPS.map((t) => [t.value, t.label])) as Record<
+  ServingTemp,
+  string
+>;
+
+// 6.4 都道府県(北から順、英語。産地の「地域」と制覇率で使う)
 export const PREFECTURES = [
-  "北海道",
-  "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-  "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
-  "岐阜県", "静岡県", "愛知県", "三重県",
-  "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
-  "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-  "徳島県", "香川県", "愛媛県", "高知県",
-  "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県",
-  "沖縄県",
+  "Hokkaido",
+  "Aomori", "Iwate", "Miyagi", "Akita", "Yamagata", "Fukushima",
+  "Ibaraki", "Tochigi", "Gunma", "Saitama", "Chiba", "Tokyo", "Kanagawa",
+  "Niigata", "Toyama", "Ishikawa", "Fukui", "Yamanashi", "Nagano",
+  "Gifu", "Shizuoka", "Aichi", "Mie",
+  "Shiga", "Kyoto", "Osaka", "Hyogo", "Nara", "Wakayama",
+  "Tottori", "Shimane", "Okayama", "Hiroshima", "Yamaguchi",
+  "Tokushima", "Kagawa", "Ehime", "Kochi",
+  "Fukuoka", "Saga", "Nagasaki", "Kumamoto", "Oita", "Miyazaki", "Kagoshima",
+  "Okinawa",
 ];
 
 // 国の入力候補(自由入力もできる)
 export const COUNTRY_SUGGESTIONS = [
-  "日本", "アメリカ", "ベルギー", "ドイツ", "チェコ", "イギリス", "アイルランド",
-  "オランダ", "デンマーク", "カナダ", "オーストラリア", "ニュージーランド", "メキシコ", "中国", "台湾", "韓国",
+  "Japan", "United States", "Canada", "Belgium", "Germany", "Czech Republic", "United Kingdom", "Ireland",
+  "Netherlands", "Denmark", "Italy", "France", "Australia", "New Zealand", "Mexico", "Taiwan", "South Korea",
 ];

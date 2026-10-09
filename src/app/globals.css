@@ -6,7 +6,8 @@
  * 例: bg-(--color-primary)  text-(--color-text-sub)  border-(--color-border)
  */
 @theme inline {
-  --font-sans: var(--font-noto-sans-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+  /* 英字は Inter、日本語(銘柄名など)は Noto Sans JP */
+  --font-sans: var(--font-inter), var(--font-noto-sans-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic", "Meiryo", sans-serif;
 }
 
@@ -20,7 +21,9 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
 }
 
 /* ===== 地図のピン(components/map/DrinkMap.tsx) =====

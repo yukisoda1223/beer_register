@@ -10,18 +10,18 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims || !isAllowedEmail(data.claims.email)) {
-    return NextResponse.json({ error: "ログインし直してください。" }, { status: 401 });
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   const body = await request.json().catch(() => null);
   try {
     const found = await geocode(supabase, {
       address: str(body?.address),
-      prefecture: str(body?.prefecture),
+      region: str(body?.region),
       country: str(body?.country),
     });
     return NextResponse.json({ lat: found?.lat ?? null, lng: found?.lng ?? null });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "場所を調べられませんでした。" }, { status: 502 });
+    return NextResponse.json({ error: "Could not look up the location." }, { status: 502 });
   }
 }

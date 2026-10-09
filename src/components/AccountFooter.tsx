@@ -9,13 +9,13 @@ export async function AccountFooter() {
   if (!email) return null;
 
   return (
-    <form action="/auth/logout" method="post" className="mt-4 flex flex-col items-center gap-2 text-[13px] text-(--color-text-sub)">
-      <p>{email} でログイン中</p>
+    <form action="/auth/logout" method="post" className="mt-4 flex flex-col items-center gap-2 text-[12px] text-(--color-text-sub)">
+      <p>Signed in as {email}</p>
       <button
         type="submit"
-        className="min-h-11 rounded-xl border border-(--color-border) bg-(--color-surface) px-5 text-(--color-text)"
+        className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-5 text-[13px] text-(--color-text)"
       >
-        ログアウト
+        Sign out
       </button>
     </form>
   );

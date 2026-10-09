@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const kind = body?.kind;
     const text = typeof body?.text === "string" ? body.text.trim() : "";
-    if (!isKind(kind)) throw new AiError("種類が正しくありません。", 400);
-    if (!text || text.length > 500) throw new AiError("文章を入れてください(500文字まで)。", 400);
+    if (!isKind(kind)) throw new AiError("Invalid kind.", 400);
+    if (!text || text.length > 500) throw new AiError("Enter a note (up to 500 characters).", 400);
 
     const { supabase, userId } = await requireUser();
     await consumeAiQuota(supabase, userId, "quick_input");

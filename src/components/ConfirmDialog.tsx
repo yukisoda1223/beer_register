@@ -10,11 +10,11 @@ export type DialogAction = {
 
 const VARIANT: Record<NonNullable<DialogAction["variant"]>, string> = {
   primary: "bg-(--color-primary) text-(--color-on-primary)",
-  danger: "bg-red-700 text-white",
+  danger: "bg-(--color-danger) text-white",
   plain: "border border-(--color-border) text-(--color-text)",
 };
 
-// 確認ダイアログ。actions は表示する順(縦に並ぶ)。Esc や外側のタップは onClose
+// 確認ダイアログ。actions が2つまでなら横並び、それより多ければ縦に並ぶ。Esc や外側のタップは onClose
 export function ConfirmDialog({
   open,
   title,
@@ -37,25 +37,27 @@ export function ConfirmDialog({
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
+  const row = actions.length <= 2;
+
   return (
     <dialog
       ref={ref}
       aria-labelledby="confirm-title"
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto w-[min(90vw,360px)] rounded-xl bg-(--color-surface) p-5 text-(--color-text) shadow-xl backdrop:bg-black/40"
+      className="m-auto w-[min(86vw,320px)] rounded-2xl bg-(--color-surface) p-5 text-(--color-text) shadow-lg backdrop:bg-black/30"
     >
-      <h2 id="confirm-title" className="text-lg font-bold">
+      <h2 id="confirm-title" className="text-[15px] font-medium">
         {title}
       </h2>
-      {message && <p className="mt-2 text-(--color-text-sub)">{message}</p>}
-      <div className="mt-5 flex flex-col gap-2">
+      {message && <p className="mt-1.5 text-[13px] leading-relaxed text-(--color-text-sub)">{message}</p>}
+      <div className={`mt-4 flex gap-2 ${row ? "flex-row-reverse" : "flex-col"}`}>
         {actions.map((a) => (
           <button
             key={a.label}
             type="button"
             onClick={a.onClick}
-            className={`min-h-11 rounded-xl font-bold ${VARIANT[a.variant ?? "plain"]}`}
+            className={`min-h-10 rounded-full px-4 text-[13px] font-medium ${row ? "flex-1" : ""} ${VARIANT[a.variant ?? "plain"]}`}
           >
             {a.label}
           </button>

@@ -3,19 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { deleteDrink, errorMessage } from "@/lib/drinks-db";
+import { errorMessage } from "@/lib/drinks-db";
 import type { Kind } from "@/lib/kinds";
+import { deleteTasting } from "@/lib/save-drink";
 import { createClient } from "@/lib/supabase/client";
 
-// 「削除」ボタン。押すと確認ダイアログを出し、「削除する」を押したときだけ記録と写真を消す
+// 「Delete」ボタン。押すと確認ダイアログを出し、Delete を押したときだけ記録と写真を消す
 export function DeleteButton({
   kind,
   id,
+  productId,
   name,
   imagePath,
 }: {
   kind: Kind;
   id: string;
+  productId: string;
   name: string;
   imagePath: string | null;
 }) {
@@ -28,11 +31,11 @@ export function DeleteButton({
     setOpen(false);
     setDeleting(true);
     try {
-      await deleteDrink(createClient(), id, imagePath);
+      await deleteTasting(createClient(), { tastingId: id, productId, imagePath });
       router.push(`/${kind}/list?done=deleted`);
       router.refresh();
     } catch {
-      setError(errorMessage("削除できませんでした。もう一度お試しください。"));
+      setError(errorMessage("Couldn't delete. Please try again."));
       setDeleting(false);
     }
   }
@@ -43,23 +46,23 @@ export function DeleteButton({
         type="button"
         disabled={deleting}
         onClick={() => setOpen(true)}
-        className="min-h-11 flex-1 rounded-xl border-2 border-red-700 bg-(--color-surface) font-bold text-red-700 disabled:opacity-60"
+        className="min-h-10 rounded-full border border-(--color-border) px-5 text-[13px] text-(--color-danger) disabled:opacity-50"
       >
-        {deleting ? "削除しています…" : "削除"}
+        {deleting ? "Deleting…" : "Delete"}
       </button>
       {error && (
-        <p role="alert" className="text-[13px] text-red-700">
+        <p role="alert" className="text-[12px] text-(--color-danger)">
           {error}
         </p>
       )}
       <ConfirmDialog
         open={open}
-        title="この記録を削除しますか?"
-        message={`「${name}」を削除します。写真も一緒に消え、元に戻せません。`}
+        title="Delete this entry?"
+        message={`“${name}” and its photo will be deleted. This can't be undone.`}
         onClose={() => setOpen(false)}
         actions={[
-          { label: "削除する", variant: "danger", onClick: handleDelete },
-          { label: "キャンセル", onClick: () => setOpen(false) },
+          { label: "Delete", variant: "danger", onClick: handleDelete },
+          { label: "Cancel", onClick: () => setOpen(false) },
         ]}
       />
     </>

@@ -1,30 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { formatDateLong, formatDateShort, iconTypeOf, originLabel } from "./drink";
+import { formatDateLong, formatDateShort, iconOf, originLabel } from "./drink";
 
 describe("originLabel", () => {
-  it("都道府県があれば都道府県を出す", () => {
-    expect(originLabel({ country: "日本", prefecture: "新潟県" })).toBe("新潟県");
+  it("地域と国をつなげる", () => {
+    expect(originLabel({ region: "Ontario", country: "Canada" })).toBe("Ontario, Canada");
+    expect(originLabel({ region: "Nagano", country: "Japan" })).toBe("Nagano, Japan");
   });
-  it("海外は国名を出す", () => {
-    expect(originLabel({ country: "ベルギー", prefecture: null })).toBe("ベルギー");
-  });
-  it("どちらも無ければ null", () => {
-    expect(originLabel({ country: null, prefecture: null })).toBeNull();
-    expect(originLabel({ country: "", prefecture: "" })).toBeNull();
+  it("片方だけでも出す。どちらも無ければ null", () => {
+    expect(originLabel({ region: null, country: "Italy" })).toBe("Italy");
+    expect(originLabel({ region: null, country: "" })).toBeNull();
   });
 });
 
-describe("iconTypeOf", () => {
-  it("日本酒は徳利、ビールは系統ごと、系統なしは缶", () => {
-    expect(iconTypeOf({ kind: "sake", beer_family: null })).toBe("sake");
-    expect(iconTypeOf({ kind: "beer", beer_family: "ale" })).toBe("ale");
-    expect(iconTypeOf({ kind: "beer", beer_family: null })).toBe("other");
+describe("iconOf", () => {
+  it("日本酒は徳利、ビールは系統の形とスタイルの色、系統なしは缶", () => {
+    expect(iconOf({ kind: "sake", beer_family: null, category: null }).type).toBe("sake");
+    expect(iconOf({ kind: "beer", beer_family: "ale", category: "Stout" })).toEqual({ type: "ale", color: "#1E1410" });
+    expect(iconOf({ kind: "beer", beer_family: null, category: null }).type).toBe("other");
   });
 });
 
 describe("日付の表示", () => {
   it("年月日と月/日に整える", () => {
-    expect(formatDateLong("2026-09-08")).toBe("2026年9月8日");
+    expect(formatDateLong("2026-09-08")).toBe("Sep 8, 2026");
     expect(formatDateShort("2026-09-08")).toBe("9/8");
   });
 });

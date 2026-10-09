@@ -25,13 +25,13 @@ export function MiniMap({ kind }: { kind: Kind }) {
   }, [kind]);
 
   return (
-    <Link href={`/${kind}/map`} className="relative isolate block h-[180px] overflow-hidden rounded-lg" aria-label="地図を全画面で見る">
+    <Link href={`/${kind}/map`} className="relative isolate block h-[180px] overflow-hidden rounded-lg" aria-label="Open full map">
       <div className="pointer-events-none size-full">
         {drinks && <DrinkMap drinks={drinks} imageUrls={NO_IMAGES} variant="mini" />}
       </div>
       {drinks?.length === 0 && (
-        <span className="absolute inset-0 z-[1000] flex items-center justify-center bg-white/60 text-[13px] text-(--color-text-sub)">
-          場所のわかる記録がまだありません
+        <span className="absolute inset-0 z-[1000] flex items-center justify-center bg-white/60 text-[12px] text-(--color-text-sub)">
+          No locations yet
         </span>
       )}
     </Link>

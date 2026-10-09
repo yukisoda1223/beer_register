@@ -13,7 +13,7 @@ const beerCandidate = z.object({
   maker: nullableString,
   maker_address: nullableString,
   country: nullableString,
-  prefecture: nullableString,
+  region: nullableString,
   category: z.string(),
   abv: nullableNumber,
   price_yen: nullableNumber,
@@ -45,15 +45,18 @@ export function researchToolSchema(kind: Kind) {
   const str = { anyOf: [{ type: "string" }, { type: "null" }] };
   const num = { anyOf: [{ type: "number" }, { type: "null" }] };
   const common: Record<string, unknown> = {
-    name: { type: "string", description: "正式な商品名" },
-    maker: { ...str, description: kind === "beer" ? "醸造所名" : "酒蔵名" },
-    maker_address: { ...str, description: "醸造所・酒蔵の所在地(市区町村まで)" },
-    country: { ...str, description: "国名(日本語。例: 日本、ベルギー)" },
-    prefecture: { ...str, description: "日本の場合は都道府県(例: 新潟県)。日本以外は null" },
-    category: { type: "string", enum: categoriesFor(kind), description: kind === "beer" ? "ビアスタイル" : "特定名称" },
-    abv: { ...num, description: "アルコール度数(%)" },
-    price_yen: { ...num, description: "参考価格(円、整数)" },
-    price_note: { ...str, description: "価格の容量など(例: 350ml缶の参考価格)" },
+    name: { type: "string", description: "Official product name" },
+    maker: { ...str, description: kind === "beer" ? "Brewery name" : "Brewery (sakagura) name" },
+    maker_address: { ...str, description: "Brewery location in English, down to the city (e.g. Matsumoto, Nagano)" },
+    country: { ...str, description: "Country in English (e.g. Japan, Canada, Belgium)" },
+    region: {
+      ...str,
+      description: "Japan: prefecture in English without suffix (e.g. Nagano). Elsewhere: state/province or city (e.g. Ontario)",
+    },
+    category: { type: "string", enum: categoriesFor(kind), description: kind === "beer" ? "Beer style" : "Sake grade" },
+    abv: { ...num, description: "ABV (%)" },
+    price_yen: { ...num, description: "Reference price in Japanese yen (integer)" },
+    price_note: { ...str, description: "What the price is for, in English (e.g. 350ml can)" },
     sources: {
       type: "array",
       items: {
@@ -67,10 +70,10 @@ export function researchToolSchema(kind: Kind) {
   const sake: Record<string, unknown> =
     kind === "sake"
       ? {
-          polish_ratio: { ...num, description: "精米歩合(%、整数)" },
-          sake_meter: { ...num, description: "日本酒度(マイナスあり)" },
-          acidity: { ...num, description: "酸度" },
-          rice: { ...str, description: "酒米(例: 山田錦)" },
+          polish_ratio: { ...num, description: "Rice polishing ratio (%, integer)" },
+          sake_meter: { ...num, description: "Sake meter value (SMV), can be negative" },
+          acidity: { ...num, description: "Acidity" },
+          rice: { ...str, description: "Rice variety in English (e.g. Yamada Nishiki)" },
         }
       : {};
   const properties = { ...common, ...sake };
@@ -81,25 +84,27 @@ export function researchToolSchema(kind: Kind) {
         type: "array",
         items: { type: "object", properties, required: Object.keys(properties), additionalProperties: false },
       },
-      note: { ...str, description: "補足(候補が複数ある理由など)。なければ null" },
+      note: { ...str, description: "Short note in English (e.g. why there are several candidates), or null" },
     },
     required: ["candidates", "note"],
     additionalProperties: false,
   };
 }
 
-// AI の答えを整える。マスタにないカテゴリは「その他」、知らない都道府県は null、候補は最大3つ
+export const MAX_CANDIDATES = 5;
+
+// AI の答えを整える。マスタにないカテゴリは Other、日本の地域は都道府県の一覧にあるものだけ、候補は最大5つ
 export function cleanResearchResult(kind: Kind, raw: unknown): ResearchResult | null {
   const parsed = researchResultSchema[kind].safeParse(raw);
   if (!parsed.success) return null;
   const categories = categoriesFor(kind);
-  const candidates = parsed.data.candidates.slice(0, 3).map((c) => {
-    const prefecture = c.prefecture && PREFECTURES.includes(c.prefecture) ? c.prefecture : null;
+  const candidates = parsed.data.candidates.slice(0, MAX_CANDIDATES).map((c) => {
+    const isJapan = c.country === "Japan";
+    const region = isJapan ? (PREFECTURES.find((p) => p.toLowerCase() === c.region?.toLowerCase()) ?? null) : c.region;
     return {
       ...c,
-      category: categories.includes(c.category) ? c.category : "その他",
-      prefecture,
-      country: prefecture ? "日本" : c.country,
+      category: categories.includes(c.category) ? c.category : "Other",
+      region,
       price_yen: c.price_yen == null ? null : Math.round(c.price_yen),
       sources: c.sources.filter((s) => /^https?:\/\//.test(s.url)),
     };

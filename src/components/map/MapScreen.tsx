@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { DrinkImage } from "@/components/DrinkImage";
 import { StarDisplay } from "@/components/StarDisplay";
-import { iconTypeOf } from "@/lib/drink";
+import { iconOf } from "@/lib/drink";
 import { errorMessage, signedImageUrls } from "@/lib/drinks-db";
 import { geocodeOnClient } from "@/lib/geo/client";
 import type { Kind } from "@/lib/kinds";
@@ -37,7 +37,7 @@ export function MapScreen({ kind }: { kind: Kind }) {
       setMissing(lacking);
       setError(null);
     } catch {
-      setError(errorMessage("地図のデータを読み込めませんでした。"));
+      setError(errorMessage("Couldn't load the map."));
     }
   }, [kind]);
 
@@ -52,8 +52,8 @@ export function MapScreen({ kind }: { kind: Kind }) {
     const supabase = createClient();
     setProgress({ done: 0, total: missing.length });
     for (const [i, m] of missing.entries()) {
-      const pos = await geocodeOnClient({ address: m.maker_address, prefecture: m.prefecture, country: m.country });
-      if (pos) await supabase.from("drinks").update({ lat: pos.lat, lng: pos.lng }).eq("id", m.id);
+      const pos = await geocodeOnClient({ address: m.maker_address, region: m.region, country: m.country });
+      if (pos) await supabase.from("products").update({ lat: pos.lat, lng: pos.lng }).eq("id", m.id);
       setProgress({ done: i + 1, total: missing.length });
     }
     setProgress(null);
@@ -74,24 +74,24 @@ export function MapScreen({ kind }: { kind: Kind }) {
 
       <div className="pointer-events-none absolute inset-x-3 top-3 z-[1000] flex flex-col gap-2">
         {error && (
-          <p role="alert" className="pointer-events-auto rounded-xl bg-red-50 px-4 py-3 text-red-800 shadow">
+          <p role="alert" className="pointer-events-auto rounded-xl bg-red-50 px-4 py-3 text-[13px] text-(--color-danger) shadow">
             {error}
           </p>
         )}
         {missing.length > 0 && (
-          <div className="pointer-events-auto flex items-center gap-3 rounded-xl bg-(--color-surface) px-4 py-2 text-[13px] shadow">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-(--color-surface) px-4 py-2 text-[12px] shadow">
             <p className="flex-1">
               {progress
-                ? `場所を調べています… ${progress.done} / ${progress.total}`
-                : `地図にまだ出ていない記録が ${missing.length} 件あります`}
+                ? `Locating… ${progress.done} / ${progress.total}`
+                : `${missing.length} ${missing.length === 1 ? "drink isn't" : "drinks aren't"} on the map yet`}
             </p>
             {!progress && (
               <button
                 type="button"
                 onClick={fillMissing}
-                className="min-h-10 rounded-lg bg-(--color-primary) px-3 font-bold text-(--color-on-primary)"
+                className="min-h-9 rounded-full bg-(--color-primary) px-3.5 font-medium text-(--color-on-primary)"
               >
-                位置を取得する
+                Locate
               </button>
             )}
           </div>
@@ -104,34 +104,34 @@ export function MapScreen({ kind }: { kind: Kind }) {
           setSelected(null);
           setFitSignal((n) => n + 1);
         }}
-        className="absolute right-3 bottom-[max(env(safe-area-inset-bottom),16px)] z-[1000] min-h-11 rounded-full bg-(--color-surface) px-4 font-bold shadow-lg"
+        className="absolute right-3 bottom-[max(env(safe-area-inset-bottom),16px)] z-[1000] min-h-10 rounded-full bg-(--color-surface) px-4 text-[13px] font-medium shadow-md"
         style={selected ? { bottom: 128 } : undefined}
       >
-        全体を表示
+        Show all
       </button>
 
       {selected && (
         <div className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),16px)] z-[1000]">
           <Link
             href={`/${kind}/${selected.id}`}
-            className="flex items-center gap-3 rounded-xl bg-(--color-surface) p-3 shadow-lg"
+            className="flex items-center gap-3 rounded-2xl bg-(--color-surface) p-3 shadow-lg"
           >
             <DrinkImage
               url={selected.image_path ? imageUrls[selected.image_path] : null}
-              icon={iconTypeOf(selected)}
+              icon={iconOf(selected)}
               size={64}
             />
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 font-bold leading-snug">{selected.name}</p>
-              {selected.maker && <p className="truncate text-[13px] text-(--color-text-sub)">{selected.maker}</p>}
-              {selected.rating != null && <StarDisplay value={selected.rating} size={14} />}
+              <p className="line-clamp-2 text-[14px] leading-snug font-medium">{selected.name}</p>
+              {selected.maker && <p className="truncate text-[12px] text-(--color-text-sub)">{selected.maker}</p>}
+              {selected.rating != null && <StarDisplay value={selected.rating} size={12} />}
             </div>
             <span aria-hidden className="text-(--color-text-sub)">›</span>
           </Link>
           <button
             type="button"
             onClick={() => setSelected(null)}
-            aria-label="閉じる"
+            aria-label="Close"
             className="absolute -top-3 -right-1 flex size-8 items-center justify-center rounded-full bg-(--color-surface) shadow"
           >
             ×

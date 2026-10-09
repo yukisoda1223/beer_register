@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const kind = body?.kind;
     const name = typeof body?.name === "string" ? body.name.trim() : "";
-    if (!isKind(kind)) throw new AiError("種類が正しくありません。", 400);
-    if (!name || name.length > 100) throw new AiError("商品名を入れてください(100文字まで)。", 400);
+    if (!isKind(kind)) throw new AiError("Invalid kind.", 400);
+    if (!name || name.length > 100) throw new AiError("Enter a name (up to 100 characters).", 400);
 
     const { supabase, userId } = await requireUser();
     const queryKey = normalizeName(name);

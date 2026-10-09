@@ -8,7 +8,7 @@ export type LeaveGuard = {
   isDirty: () => boolean;
   // 保存できたら true。保存した後の画面移動はしない(移動先は呼び出し側が決める)
   save: () => Promise<boolean>;
-  // 下書きなら「下書きに保存」、保存済みの記録なら「保存」
+  // 下書きなら "Save draft"、保存済みの記録なら "Save"
   saveLabel: string;
   title: string;
 };
@@ -52,7 +52,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
         onClose={() => !saving && setPending(null)}
         actions={[
           {
-            label: saving ? "保存しています…" : (pending?.guard.saveLabel ?? "保存"),
+            label: saving ? "Saving…" : (pending?.guard.saveLabel ?? "Save"),
             variant: "primary",
             onClick: async () => {
               if (!pending || saving) return;
@@ -63,8 +63,8 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
               else setPending(null);
             },
           },
-          { label: "破棄して移動", variant: "danger", onClick: leave },
-          { label: "キャンセル", onClick: () => setPending(null) },
+          { label: "Discard", variant: "danger", onClick: leave },
+          { label: "Cancel", onClick: () => setPending(null) },
         ]}
       />
     </UnsavedChangesContext.Provider>

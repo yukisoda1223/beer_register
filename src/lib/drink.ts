@@ -1,19 +1,25 @@
-// 記録1件の型(仕様書 §5.1 の drinks テーブルと同じ形)
+// 記録1件の型。ビュー drink_records(飲んだ記録 tastings + 銘柄 products)と同じ形
+import type { IconSpec } from "@/components/DrinkIcon";
 import type { Kind } from "@/lib/kinds";
+import { beerColorOf } from "@/lib/masters";
 
 export type BeerFamily = "ale" | "lager" | "other";
 export type ServingTemp = "cold" | "room" | "warm" | "hot";
 
 export type Drink = {
+  // 飲んだ記録(tastings)の id
   id: string;
+  // 銘柄(products)の id
+  product_id: string;
   kind: Kind;
   status: "draft" | "saved";
   drunk_on: string;
   name: string;
   maker: string | null;
   maker_address: string | null;
+  // 産地。region は日本なら都道府県(例: Nagano)、海外なら州・都市(例: Ontario)
+  region: string | null;
   country: string | null;
-  prefecture: string | null;
   abv: number | null;
   price_yen: number | null;
   price_note: string | null;
@@ -42,29 +48,24 @@ export type Drink = {
   updated_at: string;
 };
 
-export const SERVING_TEMP_LABELS: Record<ServingTemp, string> = {
-  cold: "冷酒",
-  room: "常温",
-  warm: "ぬる燗",
-  hot: "熱燗",
-};
-
-// 一覧・詳細に出す「産地」。日本なら都道府県、海外なら国名。
-export function originLabel(d: Pick<Drink, "country" | "prefecture">): string | null {
-  if (d.prefecture) return d.prefecture;
-  return d.country || null;
+// 一覧・詳細に出す「産地」。例: "Ontario, Canada"、"Nagano, Japan"、"Italy"
+export function originLabel(d: Pick<Drink, "region" | "country">): string | null {
+  const parts = [d.region?.trim(), d.country?.trim()].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
 }
 
-// 写真がないときのアイコンの種類(§6.5)
-export function iconTypeOf(d: Pick<Drink, "kind" | "beer_family">) {
-  if (d.kind === "sake") return "sake" as const;
-  return d.beer_family ?? "other";
+// 写真がないときのアイコン(§6.5)。ビールはスタイルの色で塗る
+export function iconOf(d: Pick<Drink, "kind" | "beer_family" | "category">): IconSpec {
+  if (d.kind === "sake") return { type: "sake", color: "#829da5" };
+  return { type: d.beer_family ?? "other", color: beerColorOf(d.category, d.beer_family) };
 }
 
-// "2026-09-28" → "2026年9月28日"
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "2026-09-28" → "Sep 28, 2026"
 export function formatDateLong(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  return `${y}年${m}月${d}日`;
+  return `${MONTHS[m - 1]} ${d}, ${y}`;
 }
 
 // "2026-09-28" → "9/28"

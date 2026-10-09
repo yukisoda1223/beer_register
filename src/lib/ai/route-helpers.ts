@@ -8,8 +8,8 @@ export async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
-  if (!claims || !isAllowedEmail(claims.email)) throw new AiError("ログインし直してください。", 401);
-  if (!isAiConfigured()) throw new AiError("AIの設定(ANTHROPIC_API_KEY)がまだです。", 503);
+  if (!claims || !isAllowedEmail(claims.email)) throw new AiError("Please sign in again.", 401);
+  if (!isAiConfigured()) throw new AiError("AI is not set up yet (ANTHROPIC_API_KEY).", 503);
   return { supabase, userId: claims.sub };
 }
 
@@ -18,7 +18,7 @@ export function errorResponse(error: unknown) {
   console.error(error);
   const timeout = error instanceof Error && /timed? ?out|abort/i.test(error.name + error.message);
   return NextResponse.json(
-    { error: timeout ? "時間がかかりすぎたため中断しました。もう一度お試しください。" : "AIの呼び出しに失敗しました。もう一度お試しください。" },
+    { error: timeout ? "This took too long and was stopped. Please try again." : "The AI request failed. Please try again." },
     { status: timeout ? 504 : 500 },
   );
 }

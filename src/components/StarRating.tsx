@@ -42,7 +42,7 @@ export function StarRating({
         aria-valuemin={0.5}
         aria-valuemax={5}
         aria-valuenow={value ?? undefined}
-        aria-valuetext={value == null ? "未入力" : `${value}`}
+        aria-valuetext={value == null ? "Not set" : `${value}`}
         aria-invalid={invalid || undefined}
         className={`flex cursor-pointer touch-pan-y rounded-lg outline-offset-2 select-none ${invalid ? "ring-2 ring-red-600" : ""}`}
         onPointerDown={(e) => {
@@ -87,7 +87,7 @@ export function StarRating({
           );
         })}
       </div>
-      <span className="w-8 text-right tabular-nums text-(--color-text-sub)">{value == null ? "—" : value.toFixed(1)}</span>
+      <span className="w-8 text-right text-[13px] tabular-nums text-(--color-text-sub)">{value == null ? "—" : value.toFixed(1)}</span>
     </div>
   );
 }

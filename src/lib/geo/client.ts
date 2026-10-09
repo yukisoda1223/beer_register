@@ -2,7 +2,7 @@
 import type { GeocodeInput, LatLng } from "@/lib/geo/geocode";
 
 export function locationKey(input: GeocodeInput) {
-  return [input.address, input.prefecture, input.country].map((v) => v?.trim() ?? "").join("|");
+  return [input.address, input.region, input.country].map((v) => v?.trim() ?? "").join("|");
 }
 
 export async function geocodeOnClient(input: GeocodeInput): Promise<LatLng | null> {

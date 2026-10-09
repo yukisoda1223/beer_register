@@ -4,8 +4,8 @@ export const KINDS = ["beer", "sake"] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const KIND_LABELS: Record<Kind, string> = {
-  beer: "ビール",
-  sake: "日本酒",
+  beer: "Beer",
+  sake: "Sake",
 };
 
 export const DEFAULT_KIND: Kind = "beer";

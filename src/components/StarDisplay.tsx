@@ -1,14 +1,14 @@
 // ★評価の表示だけを行う部品(入力用の部品は M3 で作る)
 export function StarDisplay({ value, size = 16 }: { value: number; size?: number }) {
   return (
-    <span className="inline-flex items-center gap-1" aria-label={`5点中${value}点`}>
+    <span className="inline-flex items-center gap-1" aria-label={`${value} out of 5`}>
       <span className="inline-flex" aria-hidden>
         {[1, 2, 3, 4, 5].map((i) => {
           const fill = Math.max(0, Math.min(1, value - (i - 1)));
           return <Star key={i} fill={fill} size={size} />;
         })}
       </span>
-      <span className="text-[13px] tabular-nums text-(--color-text-sub)">{value.toFixed(1)}</span>
+      <span className="text-[12px] tabular-nums text-(--color-text-sub)">{value.toFixed(1)}</span>
     </span>
   );
 }

@@ -9,9 +9,9 @@ export async function postAi<T>(path: string, body: unknown): Promise<T> {
       signal: AbortSignal.timeout(100_000),
     });
   } catch {
-    throw new Error(navigator.onLine ? "時間がかかりすぎたため中断しました。もう一度お試しください。" : "通信できません。");
+    throw new Error(navigator.onLine ? "This took too long and was stopped. Please try again." : "You seem to be offline.");
   }
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? "AIで処理できませんでした。");
+  if (!res.ok) throw new Error(data?.error ?? "The AI request failed.");
   return data as T;
 }
