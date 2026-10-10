@@ -27,7 +27,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
   const supabase = await createClient();
   const { data } = await supabase
     .from("drink_records")
-    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, served, peat, cask, created_at")
+    .select("id, product_id, status, drunk_on, name, category, beer_family, kind, rating, image_path, region, country, sweet_dry, aroma_level, body, smoky, bitterness, served, peat, cask, created_at")
     .eq("kind", kind)
     .eq("status", "saved");
   const records = (data ?? []) as StatRecord[];

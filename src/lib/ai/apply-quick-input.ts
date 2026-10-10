@@ -2,7 +2,7 @@
 import type { QuickInput } from "@/lib/ai/quick-input-schema";
 import type { DrinkFormValues } from "@/lib/drink-form";
 
-const VALUE_FIELDS = ["rating", "aroma", "bitterness", "smoky", "sweet_dry", "aroma_level", "body", "served"] as const;
+const VALUE_FIELDS = ["rating", "bitterness", "smoky", "sweet_dry", "aroma_level", "body", "served"] as const;
 
 export function applyQuickInput(
   values: DrinkFormValues,

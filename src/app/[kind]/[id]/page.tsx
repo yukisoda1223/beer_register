@@ -4,7 +4,7 @@ import { DrinkImage } from "@/components/DrinkImage";
 import { StarDisplay } from "@/components/StarDisplay";
 import { formatDateLong, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { loadDrinkOr404 } from "@/lib/drinks-server";
-import { KIND_CONFIG } from "@/lib/kind-config";
+import { KIND_CONFIG, SCALE_MAX, SCALE_MIN, formatScale } from "@/lib/kind-config";
 import { PEAT_LEVELS, categoryText, servedLabel } from "@/lib/masters";
 
 // 記録の詳細(見るだけ)。下の Edit / Delete から変更できる
@@ -33,10 +33,6 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
 
       <Block title="Rating">
         <StarRow label="Overall" value={drink.rating} large />
-        {config.stars.map((st) => (
-          <StarRow key={st.field} label={st.label} value={drink[st.field]} />
-        ))}
-        <StarRow label="香り" value={drink.aroma} />
         {config.scales.map((sc) => (
           <ScaleRow key={sc.field} label={sc.label} left={sc.left} right={sc.right} value={drink[sc.field]} />
         ))}
@@ -171,19 +167,22 @@ function StarRow({ label, value, large }: { label: string; value: number | null;
   );
 }
 
+// 味の評価(−2.5〜+2.5)。真ん中の線が 0 で、値の位置に点を出す
 function ScaleRow({ label, left, right, value }: { label: string; left: string; right: string; value: number | null }) {
   if (value == null) return null;
+  const pos = ((value - SCALE_MIN) / (SCALE_MAX - SCALE_MIN)) * 100;
   return (
     <div className={ROW}>
       <dt className="shrink-0 text-[12px] text-(--color-text-sub)">{label}</dt>
-      <dd className="flex items-center gap-2 text-[12px] text-(--color-text-sub)" aria-label={`${value} on a scale from ${left} (1) to ${right} (5)`}>
+      <dd className="flex items-center gap-2 text-[12px] text-(--color-text-sub)" aria-label={`${formatScale(value)}(${left} ${SCALE_MIN} 〜 ${right} +${SCALE_MAX})`}>
         <span>{left}</span>
-        <span className="flex gap-1" aria-hidden>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <span key={i} className={`size-2.5 rounded-full ${i === value ? "bg-(--color-primary)" : "bg-(--color-border)"}`} />
-          ))}
+        <span className="relative h-2.5 w-20 shrink-0" aria-hidden>
+          <span className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-(--color-border)" />
+          <span className="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-(--color-text-sub)/40" />
+          <span className="absolute top-0 size-2.5 -translate-x-1/2 rounded-full bg-(--color-primary)" style={{ left: `${pos}%` }} />
         </span>
         <span>{right}</span>
+        <span className="w-8 text-right text-(--color-text) tabular-nums">{formatScale(value)}</span>
       </dd>
     </div>
   );

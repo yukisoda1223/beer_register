@@ -31,6 +31,7 @@ function rec(o: Partial<StatRecord>): StatRecord {
     aroma_level: null,
     body: null,
     smoky: null,
+    bitterness: null,
     served: null,
     peat: null,
     cask: null,

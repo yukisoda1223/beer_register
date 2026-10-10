@@ -1,9 +1,10 @@
 // 味の好みマップ(日本酒・ワイン・ウイスキー)とシードルの甘辛の分布。
 // 1銘柄 = 1点(その銘柄を飲んだ記録の平均)。評価の高い銘柄の近くほど濃く塗る
+import { SCALE_MAX, SCALE_MIN } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
 import type { StatRecord } from "@/lib/stats";
 
-type AxisField = "sweet_dry" | "aroma_level" | "body" | "smoky";
+type AxisField = "sweet_dry" | "aroma_level" | "body" | "smoky" | "bitterness";
 
 // 軸の端の言葉。word は画面に出す言葉、te・attr は好みの一文に使う形(te = 「〜で」、attr = 名詞の前)
 type Pole = { word: string; te: string; attr: string };
@@ -12,38 +13,56 @@ export type Axis = { field: AxisField; label: string; min: number; max: number; 
 const SWEET_DRY: Axis = {
   field: "sweet_dry",
   label: "甘辛",
-  min: 1,
-  max: 5,
+  min: SCALE_MIN,
+  max: SCALE_MAX,
   low: { word: "甘口", te: "甘口で", attr: "甘口の" },
   high: { word: "辛口", te: "辛口で", attr: "辛口の" },
 };
 const AROMA: Axis = {
   field: "aroma_level",
   label: "香りの強さ",
-  min: 1,
-  max: 5,
+  min: SCALE_MIN,
+  max: SCALE_MAX,
   low: { word: "控えめ", te: "香りが控えめで", attr: "香りが控えめな" },
   high: { word: "華やか", te: "香りが華やかで", attr: "香りが華やかな" },
 };
 const BODY: Axis = {
   field: "body",
   label: "ボディ",
-  min: 1,
-  max: 5,
+  min: SCALE_MIN,
+  max: SCALE_MAX,
   low: { word: "ライト", te: "ライトボディで", attr: "ライトボディの" },
   high: { word: "フル", te: "フルボディで", attr: "フルボディの" },
 };
 const SMOKY: Axis = {
   field: "smoky",
   label: "スモーキー",
-  min: 0.5,
-  max: 5,
+  min: SCALE_MIN,
+  max: SCALE_MAX,
   low: { word: "穏やか", te: "スモーキーさが控えめで", attr: "スモーキーさが控えめな" },
   high: { word: "スモーキー", te: "スモーキーで", attr: "スモーキーな" },
 };
 
+const BITTERNESS: Axis = {
+  field: "bitterness",
+  label: "苦み",
+  min: SCALE_MIN,
+  max: SCALE_MAX,
+  low: { word: "苦み弱め", te: "苦みが控えめで", attr: "苦みが控えめな" },
+  high: { word: "苦み強め", te: "苦みがしっかりしていて", attr: "苦みのしっかりした" },
+};
+const AROMA_RICH: Axis = {
+  field: "aroma_level",
+  label: "香りの豊かさ",
+  min: SCALE_MIN,
+  max: SCALE_MAX,
+  low: { word: "香り控えめ", te: "香りが控えめで", attr: "香りが控えめな" },
+  high: { word: "香り豊か", te: "香りが豊かで", attr: "香りの豊かな" },
+};
+
 // 種類ごとの軸。横 x・縦 y の2つあるものはマップ、x だけのもの(シードル)は分布
 export const TASTE_AXES: Partial<Record<Kind, { x: Axis; y?: Axis }>> = {
+  beer: { x: BITTERNESS, y: AROMA_RICH },
   sake: { x: SWEET_DRY, y: AROMA },
   wine: { x: SWEET_DRY, y: BODY },
   whisky: { x: BODY, y: SMOKY },
@@ -81,7 +100,7 @@ export function tastePoints(records: StatRecord[], x: Axis, y?: Axis): TastePoin
 // 塗りの濃さ(0〜1)を size × size のマス目で返す。
 // 各銘柄が (評価 − 3) の重みで周りを塗る(★3より低い銘柄の近くは薄くなる)。一番濃いマスが 1
 export function preferenceGrid(points: TastePoint[], x: Axis, y: Axis, size = 20): number[][] {
-  const sigma = 0.75;
+  const sigma = 0.9;
   const raw = Array.from({ length: size }, (_, row) =>
     Array.from({ length: size }, (_, col) => {
       // マスの中心の値(row 0 が上 = y の最大)
@@ -119,10 +138,11 @@ export function preferenceSentence(kind: Kind, points: TastePoint[], x: Axis, y?
   return `${phrase}${noun}がお好きなようです。`;
 }
 
-// シードルの甘辛の分布: 1〜5 の段階ごとの銘柄数と平均評価
+// シードルの甘辛の分布: −2〜+2 の5つの段階ごとの銘柄数と平均評価(±2.5 は端の段階に入れる)
 export function distribution(points: TastePoint[]) {
-  return [1, 2, 3, 4, 5].map((step) => {
-    const inStep = points.filter((p) => Math.round(p.x) === step);
+  const stepOf = (x: number) => Math.min(2, Math.max(-2, Math.round(x)));
+  return [-2, -1, 0, 1, 2].map((step) => {
+    const inStep = points.filter((p) => stepOf(p.x) === step);
     return { step, count: inStep.length, avgRating: inStep.length ? mean(inStep.map((p) => p.rating)) : null };
   });
 }

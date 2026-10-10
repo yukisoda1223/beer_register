@@ -9,28 +9,29 @@ function systemPrompt(kind: Kind) {
   const common = `You help a Japanese person log the ${label} they drink. Read the short note they wrote (usually Japanese)
 and split it into the record fields. Use null for anything not mentioned. Do not guess.
 
-Guide for turning words into numbers (stars are 0.5-5 in 0.5 steps):
-- "★4", "4点", "4 stars" → 4. "★3.5" → 3.5. "最高" → 5, "微妙" → 2.5 or so
-- aroma (how good the aroma is): "香りが良い" → 4, "すごく良い香り" → 5
+Guide for turning words into numbers:
+- rating (overall stars, 0.5-5 in 0.5 steps): "★4", "4点", "4 stars" → 4. "★3.5" → 3.5. "最高" → 5, "微妙" → 2.5 or so
+- Taste scales are -2.5 to +2.5 in 0.5 steps. 0 = average/normal. Mild wording → ±1, clear → ±1.5 to 2, extreme ("とても", "超", "強烈") → ±2.5
 - comment: the rest of the note that did not become a field (food pairing, situation, impressions), in Japanese, close to the original wording
 - name: only the product name (no stars or impressions)
 - Fields that do not apply to ${label}: null`;
   const byKind: Record<Kind, string> = {
     beer: `
-- bitterness: "苦め" → 4, "とても苦い"/"ガツンと苦い" → 5, "ほどよい苦み" → 3, "苦くない" → 1.5`,
+- bitterness (-2.5 weak … +2.5 strong): "苦め" → +1.5, "とても苦い"/"ガツンと苦い" → +2.5, "ほどよい苦み" → 0, "苦くない" → -2
+- aroma_level (aroma richness, -2.5 subtle … +2.5 rich): "香りが良い"/"香り豊か" → +1.5, "ホップがすごく香る" → +2.5, "香りは控えめ" → -1`,
     sake: `
-- sweet_dry (integer 1-5, 1 = sweet, 5 = dry): "甘口" → 2, "とても甘い" → 1, "すっきり辛口"/"辛口" → 4, "超辛口" → 5
-- aroma_level (integer 1-5, how strong the aroma is, 1 = subtle, 5 = fragrant): "香りは控えめ" → 2, "華やか"/"フルーティ" → 4, "とても華やか" → 5
+- sweet_dry (-2.5 sweet … +2.5 dry): "甘口" → -1.5, "とても甘い" → -2.5, "すっきり辛口"/"辛口" → +1.5, "超辛口" → +2.5
+- aroma_level (-2.5 subtle … +2.5 fragrant): "香りは控えめ" → -1, "華やか"/"フルーティ" → +1.5, "とても華やか" → +2.5
 - served: "冷酒"/"冷や"/"冷やして" → cold, "常温" → room, "ぬる燗" → warm, "熱燗" → hot`,
     whisky: `
-- body (integer 1-5, 1 = light, 5 = full): "軽い" → 2, "どっしり"/"重厚" → 4-5
-- smoky (stars): "スモーキー" → 4, "ピートが強烈" → 5, "スモーキーさは控えめ" → 2
+- body (-2.5 light … +2.5 full): "軽い" → -1.5, "どっしり"/"重厚" → +1.5 to +2.5
+- smoky (-2.5 gentle … +2.5 strong): "スモーキー" → +1.5, "ピートが強烈" → +2.5, "スモーキーさは控えめ" → -1
 - served: "ストレート" → neat, "ロック" → rocks, "水割り"/"トワイスアップ" → water, "ハイボール" → highball, "カクテル" → cocktail`,
     cider: `
-- sweet_dry (integer 1-5, 1 = sweet, 5 = dry): "甘い" → 2, "ドライ"/"辛口" → 4`,
+- sweet_dry (-2.5 sweet … +2.5 dry): "甘い" → -1.5, "ドライ"/"辛口" → +1.5`,
     wine: `
-- sweet_dry (integer 1-5, 1 = sweet, 5 = dry): "甘口" → 2, "辛口"/"ドライ" → 4
-- body (integer 1-5, 1 = light, 5 = full): "ライトボディ"/"軽い" → 2, "ミディアム" → 3, "フルボディ"/"重い" → 4-5`,
+- sweet_dry (-2.5 sweet … +2.5 dry): "甘口" → -1.5, "辛口"/"ドライ" → +1.5
+- body (-2.5 light … +2.5 full): "ライトボディ"/"軽い" → -1.5, "ミディアム" → 0, "フルボディ"/"重い" → +1.5 to +2.5`,
   };
   return common + byKind[kind];
 }

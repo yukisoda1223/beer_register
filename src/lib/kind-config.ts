@@ -10,12 +10,22 @@ import {
   WINE_TYPES,
 } from "@/lib/masters";
 
-// 5段階のスライダー(飲んだ回ごと)
-export type ScaleField = "sweet_dry" | "aroma_level" | "body";
+// 味のスライダー(飲んだ回ごと)。真ん中が 0(ふつう)、−2.5〜+2.5 の 0.5 刻み
+export type ScaleField = "sweet_dry" | "aroma_level" | "body" | "bitterness" | "smoky";
 export type Scale = { field: ScaleField; label: string; left: string; right: string };
+export const SCALE_MIN = -2.5;
+export const SCALE_MAX = 2.5;
 
-// ★で付ける追加の評価(飲んだ回ごと)
-export type StarField = "bitterness" | "smoky";
+// 表示用: +1.5 / 0 / −1
+export function formatScale(v: number) {
+  return v > 0 ? `+${v}` : `${v}`;
+}
+
+// 範囲内・0.5 刻みにそろえる
+export function clampScale(v: number | null): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  return Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.round(v * 2) / 2));
+}
 
 // 数字で入れる銘柄の情報
 export type NumberProductField = "polish_ratio" | "sake_meter" | "acidity" | "age_years" | "vintage";
@@ -36,7 +46,6 @@ export type KindConfig = {
   cask?: string[];
   peat?: typeof PEAT_LEVELS;
   scales: Scale[];
-  stars: { field: StarField; label: string }[];
   // 飲み方の見出し(選択肢は masters の SERVED_OPTIONS)
   servedLabel?: string;
   sizePlaceholder: string;
@@ -56,8 +65,10 @@ export const KIND_CONFIG: Record<Kind, KindConfig> = {
     categories: BEER_CATEGORIES.map((c) => c.label),
     categoryRequired: true,
     numbers: [],
-    scales: [],
-    stars: [{ field: "bitterness", label: "苦み" }],
+    scales: [
+      { field: "bitterness", label: "苦み", left: "弱い", right: "強い" },
+      { field: "aroma_level", label: "香りの豊かさ", left: "控えめ", right: "豊か" },
+    ],
     sizePlaceholder: "350ml缶",
     namePlaceholder: "例: よなよなエール",
   },
@@ -76,7 +87,6 @@ export const KIND_CONFIG: Record<Kind, KindConfig> = {
       { field: "acidity", label: "酸度" },
     ],
     scales: [SWEET_DRY, { field: "aroma_level", label: "香りの強さ", left: "控えめ", right: "華やか" }],
-    stars: [],
     servedLabel: "飲み方",
     sizePlaceholder: "720ml",
     namePlaceholder: "例: 獺祭 純米大吟醸 45",
@@ -91,8 +101,7 @@ export const KIND_CONFIG: Record<Kind, KindConfig> = {
     numbers: [{ field: "age_years", label: "Age", unit: "yrs", integer: true, placeholder: "NAS" }],
     cask: CASKS,
     peat: PEAT_LEVELS,
-    scales: [BODY],
-    stars: [{ field: "smoky", label: "スモーキー" }],
+    scales: [BODY, { field: "smoky", label: "スモーキー", left: "穏やか", right: "強い" }],
     servedLabel: "Served",
     sizePlaceholder: "700ml",
     namePlaceholder: "例: 山崎 12年",
@@ -107,7 +116,6 @@ export const KIND_CONFIG: Record<Kind, KindConfig> = {
     ingredient: { label: "Apple / pear", placeholder: "Bramley" },
     numbers: [],
     scales: [SWEET_DRY],
-    stars: [],
     sizePlaceholder: "330ml瓶",
     namePlaceholder: "例: ニッカ シードル ドライ",
   },
@@ -121,7 +129,6 @@ export const KIND_CONFIG: Record<Kind, KindConfig> = {
     ingredient: { label: "Grapes", placeholder: "Pinot Noir" },
     numbers: [{ field: "vintage", label: "Vintage", integer: true, placeholder: "2019" }],
     scales: [SWEET_DRY, BODY],
-    stars: [],
     sizePlaceholder: "750ml",
     namePlaceholder: "例: シャトー・メルシャン 椀子 メルロー",
   },

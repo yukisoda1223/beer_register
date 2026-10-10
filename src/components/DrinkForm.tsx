@@ -6,8 +6,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ImagePicker } from "@/components/ImagePicker";
 import { QuickInputSheet } from "@/components/QuickInputSheet";
 import { ResearchButton } from "@/components/ResearchButton";
-import { Slider5 } from "@/components/Slider5";
 import { StarRating } from "@/components/StarRating";
+import { TasteSlider } from "@/components/TasteSlider";
 import { useRegisterLeaveGuard } from "@/components/UnsavedChanges";
 import { applyQuickInput } from "@/lib/ai/apply-quick-input";
 import { applyCandidate } from "@/lib/ai/apply-research";
@@ -387,17 +387,9 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           <Field label="Overall" field="rating" error={errors.rating} required>
             <StarRating id="field-rating" label="Overall" value={values.rating} onChange={(v) => set("rating", v)} invalid={!!errors.rating} />
           </Field>
-          {config.stars.map((st) => (
-            <Field key={st.field} label={st.label} field={st.field}>
-              <StarRating label={st.label} value={values[st.field]} onChange={(v) => set(st.field, v)} size={26} />
-            </Field>
-          ))}
-          <Field label="香り" field="aroma">
-            <StarRating label="香り" value={values.aroma} onChange={(v) => set("aroma", v)} size={26} />
-          </Field>
           {config.scales.map((sc) => (
             <Field key={sc.field} label={sc.label} field={sc.field}>
-              <Slider5 label={sc.label} left={sc.left} right={sc.right} value={values[sc.field]} onChange={(v) => set(sc.field, v)} />
+              <TasteSlider label={sc.label} left={sc.left} right={sc.right} value={values[sc.field]} onChange={(v) => set(sc.field, v)} />
             </Field>
           ))}
           {servedOptions && (

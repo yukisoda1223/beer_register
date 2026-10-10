@@ -6,7 +6,6 @@ const input = {
   name: "テスト山エール",
   rating: 4,
   bitterness: 4,
-  aroma: null,
   smoky: null,
   sweet_dry: null,
   aroma_level: null,
@@ -21,7 +20,6 @@ describe("applyQuickInput", () => {
     expect(r.values.name).toBe("テスト山エール");
     expect(r.values.rating).toBe(4);
     expect(r.values.bitterness).toBe(4);
-    expect(r.values.aroma).toBeNull();
     expect(r.values.comment).toBe("唐揚げと合う");
     expect(r.aiFilled.sort()).toEqual(["bitterness", "comment", "name", "rating"]);
   });

@@ -174,7 +174,6 @@ export function drinkPayload(kind: Kind, v: DrinkFormValues, status: "draft" | "
   const c = KIND_CONFIG[kind];
   const hasNumber = (f: NumberProductField) => c.numbers.some((n) => n.field === f);
   const hasScale = (f: string) => c.scales.some((s) => s.field === f);
-  const hasStar = (f: string) => c.stars.some((s) => s.field === f);
   const servedOk = SERVED_OPTIONS[kind]?.some((o) => o.value === v.served) ?? false;
 
   const product = {
@@ -205,8 +204,8 @@ export function drinkPayload(kind: Kind, v: DrinkFormValues, status: "draft" | "
     rating: v.rating,
     aroma: v.aroma,
     comment: text(v.comment),
-    bitterness: hasStar("bitterness") ? v.bitterness : null,
-    smoky: hasStar("smoky") ? v.smoky : null,
+    bitterness: hasScale("bitterness") ? v.bitterness : null,
+    smoky: hasScale("smoky") ? v.smoky : null,
     sweet_dry: hasScale("sweet_dry") ? v.sweet_dry : null,
     aroma_level: hasScale("aroma_level") ? v.aroma_level : null,
     body: hasScale("body") ? v.body : null,

@@ -6,7 +6,7 @@ import { categoryText } from "@/lib/masters";
 export type StatRecord = Pick<
   Drink,
   | "id" | "product_id" | "status" | "drunk_on" | "name" | "category" | "beer_family" | "kind" | "rating"
-  | "image_path" | "region" | "country" | "sweet_dry" | "aroma_level" | "body" | "smoky" | "served" | "peat" | "cask" | "created_at"
+  | "image_path" | "region" | "country" | "sweet_dry" | "aroma_level" | "body" | "smoky" | "bitterness" | "served" | "peat" | "cask" | "created_at"
 >;
 
 function saved<T extends Pick<StatRecord, "status">>(records: T[]) {
@@ -128,11 +128,16 @@ export function summaryInput(kind: Kind, records: StatRecord[], today: string) {
     favorites: favoritesTop5(records, today).map((r) => ({ name: r.name, category: r.category == null ? null : label(r.category), rating: r.rating })),
     countries: [...new Set(s.map((r) => r.country).filter(Boolean))],
   };
-  const avgOf = (f: "sweet_dry" | "aroma_level" | "body" | "smoky") => avg(s.flatMap((r) => (r[f] != null ? [r[f] as number] : [])));
+  const avgOf = (f: "sweet_dry" | "aroma_level" | "body" | "smoky" | "bitterness") => avg(s.flatMap((r) => (r[f] != null ? [r[f] as number] : [])));
   if (kind === "beer") {
     const families: Record<string, number> = {};
     s.forEach((r) => (families[r.beer_family ?? "other"] = (families[r.beer_family ?? "other"] ?? 0) + 1));
     result.families = families;
+  }
+  result.taste_scale = "味の平均は −2.5〜+2.5(0 がふつう)。甘辛は + が辛口、香り・ボディ・苦み・スモーキーは + が強い";
+  if (kind === "beer") {
+    result.avg_bitterness = avgOf("bitterness");
+    result.avg_aroma_richness = avgOf("aroma_level");
   }
   if (kind === "sake" || kind === "wine" || kind === "cider") result.avg_sweet_dry = avgOf("sweet_dry");
   if (kind === "sake") result.avg_aroma_intensity = avgOf("aroma_level");
