@@ -7,15 +7,17 @@ import { KindToggle } from "@/components/KindToggle";
 import type { Kind } from "@/lib/kinds";
 
 // 下タブのある画面(レポート・一覧)以外では、左上に戻るボタンを出す
-const TAB_SCREENS = ["report", "list"];
+const TAB_SCREENS = ["report", "list", "learn"];
 
 export function AppHeader({ kind, kinds }: { kind: Kind; kinds: Kind[] }) {
-  const screen = usePathname().split("/")[2];
-  const showBack = !TAB_SCREENS.includes(screen);
+  const parts = usePathname().split("/");
+  const screen = parts[2];
+  // タブの画面のトップ以外(Learn のスタイル詳細など)では戻るボタンを出す
+  const showBack = !TAB_SCREENS.includes(screen) || parts.length > 3;
 
   return (
     <header className="sticky top-0 z-10 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center bg-(--color-bg)/95 px-2 pt-[max(env(safe-area-inset-top),12px)] pb-3 backdrop-blur">
-      <div>{showBack && <BackButton fallback={`/${kind}/list`} />}</div>
+      <div>{showBack && <BackButton fallback={screen === "learn" ? `/${kind}/learn` : `/${kind}/list`} />}</div>
       <div className="flex min-w-0 items-center justify-center gap-1">
         <KindToggle kind={kind} kinds={kinds} />
         {screen !== "settings" && (

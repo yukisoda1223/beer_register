@@ -13,10 +13,20 @@ import { createClient } from "@/lib/supabase/client";
 const MIN_RATINGS = [3, 3.5, 4, 4.5];
 
 // 一覧・下書き一覧の表。検索・絞り込み・並び替えと、下までスクロールしたら続きを読む
-export function DrinkTable({ kind, status, region }: { kind: Kind; status: "draft" | "saved"; region?: string }) {
+export function DrinkTable({
+  kind,
+  status,
+  region,
+  initialCategory = "",
+}: {
+  kind: Kind;
+  status: "draft" | "saved";
+  region?: string;
+  initialCategory?: string;
+}) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [minRating, setMinRating] = useState<number | null>(null);
   const [sort, setSort] = useState<ListQuery["sort"]>("date");
 

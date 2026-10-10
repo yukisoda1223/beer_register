@@ -32,7 +32,7 @@ export function isKind(value: unknown): value is Kind {
 }
 
 // kind の後ろに来る画面名(これ以外は記録の id)
-const SCREENS = ["report", "list", "drafts", "new", "map", "settings"];
+const SCREENS = ["report", "list", "learn", "drafts", "new", "map", "settings"];
 
 // "/beer/list" → "/sake/list" のように、同じ種類の画面のまま kind だけを入れ替える。
 // 記録の詳細・編集画面(/beer/{id})は相手側に同じ記録が無いので一覧へ移る。
@@ -40,6 +40,8 @@ export function switchKindInPath(pathname: string, to: Kind): string {
   const [, kind, screen] = pathname.split("/");
   if (!isKind(kind) || !screen) return `/${to}/report`;
   if (!SCREENS.includes(screen)) return `/${to}/list`;
+  // Learn のスタイル詳細(/beer/learn/ipa)は、相手の種類の Learn のトップへ
+  if (screen === "learn") return `/${to}/learn`;
   return `/${to}/${screen}`;
 }
 
