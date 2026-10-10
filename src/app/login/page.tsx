@@ -1,11 +1,11 @@
-import { Fredoka, Zen_Maru_Gothic } from "next/font/google";
+import localFont from "next/font/local";
 import { LOGIN_ERRORS } from "@/lib/auth";
 import { BeerStamp } from "./BeerStamp";
 import { LoginButton } from "./LoginButton";
 
-// ログイン画面だけで使う丸みのある文字(スタンプの英字と、アプリ名)
-const fredoka = Fredoka({ subsets: ["latin"], weight: ["500"], display: "swap" });
-const zenMaru = Zen_Maru_Gothic({ weight: ["400"], display: "swap", preload: false });
+// ログイン画面だけで使う丸みのある文字(スタンプの英字と、アプリ名)。使う文字だけに絞ったファイルを同梱(fonts/README.md)
+const fredoka = localFont({ src: "./fonts/fredoka-500-latin.ttf", weight: "500", display: "swap" });
+const zenMaru = localFont({ src: "./fonts/zen-maru-gothic-400-title.ttf", weight: "400", display: "swap" });
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { error } = await searchParams;

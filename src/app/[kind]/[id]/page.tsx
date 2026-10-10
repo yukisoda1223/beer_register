@@ -6,6 +6,7 @@ import { formatDateLong, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { loadDrinkOr404 } from "@/lib/drinks-server";
 import { KIND_CONFIG, SCALE_MAX, SCALE_MIN, formatScale } from "@/lib/kind-config";
 import { beerStyleByName } from "@/lib/learn/beer-styles";
+import { sakeGradeByName } from "@/lib/learn/sake-grades";
 import { PEAT_LEVELS, categoryText, servedLabel } from "@/lib/masters";
 
 // 記録の詳細(見るだけ)。下の Edit / Delete から変更できる
@@ -16,7 +17,7 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
   const origin = originLabel(drink);
   const config = KIND_CONFIG[kind];
   // ビールのスタイルは Learn の説明へリンクする
-  const learn = kind === "beer" ? beerStyleByName(drink.category) : undefined;
+  const learn = kind === "beer" ? beerStyleByName(drink.category) : kind === "sake" ? sakeGradeByName(drink.category) : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -30,8 +31,8 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
           <h1 className="text-[20px] leading-snug font-medium tracking-tight">{drink.name}</h1>
           <p className="mt-0.5 text-[13px] text-(--color-text-sub)">
             {learn ? (
-              <Link href={`/beer/learn/${learn.slug}`} className="underline decoration-(--color-border) underline-offset-4">
-                {drink.category}
+              <Link href={`/${kind}/learn/${learn.slug}`} className="underline decoration-(--color-border) underline-offset-4">
+                {categoryText(kind, drink.category)}
               </Link>
             ) : (
               categoryText(kind, drink.category)

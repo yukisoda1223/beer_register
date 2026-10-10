@@ -6,9 +6,10 @@
  * 例: bg-(--color-primary)  text-(--color-text-sub)  border-(--color-border)
  */
 @theme inline {
-  /* 英字は Inter、日本語(銘柄名など)は Noto Sans JP */
-  --font-sans: var(--font-inter), var(--font-noto-sans-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-    "Yu Gothic", "Meiryo", sans-serif;
+  /* 英字は Inter、日本語は端末の文字(iPhone・Mac はヒラギノ、Windows は游ゴシック・メイリオ、Android は Noto Sans CJK)。
+     Noto Sans JP を next/font で読み込むと Google Fonts の応答の形が変わってビルドできなくなったため、使わない(2026-10) */
+  --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", YuGothic, "Meiryo",
+    "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
 }
 
 html {

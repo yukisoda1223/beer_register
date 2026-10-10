@@ -3,10 +3,15 @@ import { notFound } from "next/navigation";
 import { BeerGlass } from "@/components/learn/BeerGlass";
 import { RangeBar } from "@/components/learn/RangeBar";
 import { BEER_STYLES, GLASS_NAMES, beerStyleBySlug, beerStyleColor, treePathOf, type Range } from "@/lib/learn/beer-styles";
+import { RiceGrain } from "@/components/learn/sake/RiceGrain";
+import { SAKE_GRADES, SAKE_GROUPS, sakeGradeBySlug } from "@/lib/learn/sake-grades";
 import { createClient } from "@/lib/supabase/server";
 
 export function generateStaticParams() {
-  return BEER_STYLES.map((s) => ({ kind: "beer", style: s.slug }));
+  return [
+    ...BEER_STYLES.map((s) => ({ kind: "beer", style: s.slug })),
+    ...SAKE_GRADES.map((g) => ({ kind: "sake", style: g.slug })),
+  ];
 }
 
 const fmt = (r: Range, unit = "") => (r[0] === r[1] ? `${r[0]}${unit}` : `${r[0]}〜${r[1]}${unit}`);
@@ -14,6 +19,7 @@ const fmt = (r: Range, unit = "") => (r[0] === r[1] ? `${r[0]}${unit}` : `${r[0]
 // スタイルの詳しい説明。グラス・色・度数・苦み・温度・合う料理と、自分の記録
 export default async function BeerStylePage({ params }: PageProps<"/[kind]/learn/[style]">) {
   const { kind, style } = await params;
+  if (kind === "sake") return <SakeGradePage slug={style} />;
   const st = beerStyleBySlug(style);
   if (kind !== "beer" || !st) notFound();
 
@@ -72,32 +78,7 @@ export default async function BeerStylePage({ params }: PageProps<"/[kind]/learn
         </dl>
       </section>
 
-      <section className="flex items-center justify-between rounded-[24px] border border-(--color-border) bg-(--color-surface) px-6 py-4">
-        <div>
-          <p className="text-[10px] tracking-[0.2em] text-(--color-text-sub)">YOUR LOG</p>
-          <p className="mt-0.5 text-[15px] font-light">
-            {count ? (
-              <>
-                <span className="text-[22px] tabular-nums">{count}</span> 杯 記録しています
-              </>
-            ) : (
-              "まだ記録がありません"
-            )}
-          </p>
-        </div>
-        {count ? (
-          <Link
-            href={`/beer/list?style=${encodeURIComponent(st.name)}`}
-            className="flex min-h-10 items-center gap-1.5 rounded-full bg-(--color-text) px-4 text-[12px] tracking-wide text-(--color-bg)"
-          >
-            一覧を見る
-          </Link>
-        ) : (
-          <Link href="/beer/new" className="flex min-h-10 items-center rounded-full border border-(--color-border) px-4 text-[12px] tracking-wide">
-            記録する
-          </Link>
-        )}
-      </section>
+      <YourLog kind="beer" category={st.name} count={count ?? 0} />
 
       {siblings.length > 0 && (
         <section className="px-1">
@@ -129,6 +110,104 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
         {sub && <span className="mt-0.5 block text-[10px] tabular-nums">{sub}</span>}
       </dt>
       <dd className="text-[13px]">{children}</dd>
+    </div>
+  );
+}
+
+function YourLog({ kind, category, count }: { kind: "beer" | "sake"; category: string; count: number }) {
+  return (
+    <section className="flex items-center justify-between rounded-[24px] border border-(--color-border) bg-(--color-surface) px-6 py-4">
+      <div>
+        <p className="text-[10px] tracking-[0.2em] text-(--color-text-sub)">YOUR LOG</p>
+        <p className="mt-0.5 text-[15px] font-light">
+          {count ? (
+            <>
+              <span className="text-[22px] tabular-nums">{count}</span> 杯 記録しています
+            </>
+          ) : (
+            "まだ記録がありません"
+          )}
+        </p>
+      </div>
+      {count ? (
+        <Link
+          href={`/${kind}/list?style=${encodeURIComponent(category)}`}
+          className="flex min-h-10 items-center gap-1.5 rounded-full bg-(--color-text) px-4 text-[12px] tracking-wide text-(--color-bg)"
+        >
+          一覧を見る
+        </Link>
+      ) : (
+        <Link href={`/${kind}/new`} className="flex min-h-10 items-center rounded-full border border-(--color-border) px-4 text-[12px] tracking-wide">
+          記録する
+        </Link>
+      )}
+    </section>
+  );
+}
+
+// 日本酒の特定名称の詳しい説明
+async function SakeGradePage({ slug }: { slug: string }) {
+  const g = sakeGradeBySlug(slug);
+  if (!g) notFound();
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("drink_records")
+    .select("id", { count: "exact", head: true })
+    .eq("kind", "sake")
+    .eq("status", "saved")
+    .eq("category", g.name);
+  const siblings = SAKE_GRADES.filter((x) => x.group === g.group && x.slug !== g.slug);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <section className="overflow-hidden rounded-[24px] border border-(--color-border) bg-(--color-surface)">
+        <div className="flex items-end justify-center gap-6 py-8" style={{ background: "linear-gradient(to bottom, var(--color-primary-soft), var(--color-surface))" }}>
+          <div className="flex flex-col items-center">
+            <RiceGrain ratio={g.polishFor} size={84} />
+            <span className="mt-1 text-[11px] text-(--color-text-sub) tabular-nums">
+              {g.polishIsRule ? `精米歩合 ${g.polishFor}%` : `よくある精米歩合 ${g.polishFor}%前後`}
+            </span>
+          </div>
+        </div>
+        <div className="px-6 pb-6">
+          <p className="text-[10px] tracking-[0.2em] text-(--color-text-sub)">
+            {SAKE_GROUPS[g.group].ja} · {g.types.join("・")}
+          </p>
+          <h1 className="mt-1 text-[28px] font-light tracking-widest">{g.ja}</h1>
+          <p className="text-[11px] tracking-[0.1em] text-(--color-text-sub)">{g.name}</p>
+          <p className="mt-2 text-[13px] text-(--color-text-sub)">{g.summary}</p>
+          <p className="mt-4 text-[14px] leading-relaxed">{g.description}</p>
+        </div>
+      </section>
+
+      <section className="rounded-[24px] border border-(--color-border) bg-(--color-surface) px-6 py-5">
+        <dl className="divide-y divide-(--color-border)">
+          <Row label="原料">{g.group === "junmai" ? "米・米麹・水" : g.group === "honjozo" ? "米・米麹・醸造アルコール・水" : "銘柄による"}</Row>
+          <Row label="精米歩合">{g.polish}</Row>
+          {g.method && <Row label="造り">{g.method}</Row>}
+          <Row label="香り">{g.aroma}</Row>
+          <Row label="味わい">{g.taste}</Row>
+          <Row label="温度">{g.temp}</Row>
+          <Row label="合う料理">{g.pairing}</Row>
+        </dl>
+      </section>
+
+      <YourLog kind="sake" category={g.name} count={count ?? 0} />
+
+      {siblings.length > 0 && (
+        <section className="px-1">
+          <p className="text-[10px] tracking-[0.2em] text-(--color-text-sub)">SAME FAMILY</p>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {siblings.map((x) => (
+              <li key={x.slug}>
+                <Link href={`/sake/learn/${x.slug}`} className="flex min-h-8 items-center rounded-full border border-(--color-border) bg-(--color-surface) px-3 text-[12px] tracking-wide">
+                  {x.ja}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
