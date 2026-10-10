@@ -1,4 +1,5 @@
 import { KindSettingsList } from "@/components/KindSettingsList";
+import { ReplayIntro } from "@/components/welcome/ReplayIntro";
 import { loadKindSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,7 +12,8 @@ export default async function KindSettingsPage() {
         <h1 className="text-[20px] font-medium tracking-tight">Drink types</h1>
         <p className="mt-1 text-[13px] text-(--color-text-sub)">Checked types appear in the header. Drag ≡ to change the order.</p>
       </div>
-      <KindSettingsList initial={settings} />
+      <KindSettingsList key={settings.visible.join()} initial={settings} />
+      <ReplayIntro settings={settings} />
     </div>
   );
 }

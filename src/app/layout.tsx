@@ -19,8 +19,8 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "Nomikurabe",
-  description: "A personal log of the beer and sake you drink.",
+  title: "のみくらべノート",
+  description: "飲んだお酒を記録して、のみくらべるノート。",
 };
 
 export const viewport: Viewport = {

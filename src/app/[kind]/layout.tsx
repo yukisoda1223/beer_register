@@ -4,7 +4,9 @@ import { BottomTabs } from "@/components/BottomTabs";
 import { ThemeSync } from "@/components/ThemeSync";
 import { UnsavedChangesProvider } from "@/components/UnsavedChanges";
 import { KINDS, headerKinds, isKind } from "@/lib/kinds";
-import { loadKindSettings } from "@/lib/settings";
+import { Suspense } from "react";
+import { Welcome } from "@/components/welcome/Welcome";
+import { loadKindSettings, loadOnboarded } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 
 export function generateStaticParams() {
@@ -16,7 +18,8 @@ export default async function KindLayout({ children, params }: LayoutProps<"/[ki
   // 知らない種類の URL は 404 にする
   if (!isKind(kind)) notFound();
   // ヘッダーに出す種類(設定画面の並び順・チェック)
-  const settings = await loadKindSettings(await createClient());
+  const supabase = await createClient();
+  const [settings, onboarded] = await Promise.all([loadKindSettings(supabase), loadOnboarded(supabase)]);
   const kinds = headerKinds(settings.order, settings.visible, kind);
 
   return (
@@ -28,6 +31,10 @@ export default async function KindLayout({ children, params }: LayoutProps<"/[ki
           <AppHeader kind={kind} kinds={kinds} />
           <main className="flex-1 px-4 pt-4 pb-24">{children}</main>
           <BottomTabs kind={kind} />
+          {/* ログイン直後の使い方紹介・ダイブ(?welcome=1 を読むので Suspense の中) */}
+          <Suspense>
+            <Welcome kind={kind} settings={settings} onboarded={onboarded} />
+          </Suspense>
         </div>
       </UnsavedChangesProvider>
     </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function LoginButton() {
+export function LoginButton({ fontClass }: { fontClass?: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +27,12 @@ export function LoginButton() {
         type="button"
         onClick={handleLogin}
         disabled={loading}
-        className="flex min-h-11 w-full items-center justify-center gap-3 rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px] font-medium disabled:opacity-60"
+        className={`${fontClass ?? ""} flex min-h-13 w-full items-center justify-center gap-3 rounded-full bg-(--color-text) px-4 text-[16px] font-medium text-(--color-bg) disabled:opacity-60`}
       >
-        <GoogleMark />
-        {loading ? "Opening Google…" : "Continue with Google"}
+        <span className="flex size-7 items-center justify-center rounded-full bg-white">
+          <GoogleMark />
+        </span>
+        {loading ? "Opening Google…" : "Sign in with Google"}
       </button>
       {error && <p className="text-[12px] text-(--color-danger)">{error}</p>}
     </div>
@@ -39,7 +41,7 @@ export function LoginButton() {
 
 function GoogleMark() {
   return (
-    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden>
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
       <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
       <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z" />
       <path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.8l7.8-6.1z" />

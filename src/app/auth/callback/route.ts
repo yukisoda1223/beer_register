@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
         await supabase.auth.signOut();
         return NextResponse.redirect(`${origin}/login?error=not_allowed`);
       }
-      return NextResponse.redirect(`${origin}/`);
+      // ?welcome=1: ログイン直後の使い方紹介・ダイブを出す
+      return NextResponse.redirect(`${origin}/?welcome=1`);
     }
   }
 

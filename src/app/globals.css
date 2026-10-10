@@ -104,3 +104,47 @@ body {
   .calendar-in-next { animation: calendar-from-right 220ms ease-out; }
   .calendar-in-prev { animation: calendar-from-left 220ms ease-out; }
 }
+
+/* ===== ログイン画面(app/login) ===== */
+.login-dots {
+  background-image: radial-gradient(#ddd6c8 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+/* スタンプを「ぽん」と押す */
+@keyframes stamp-press {
+  0% { transform: scale(1.5) rotate(6deg); opacity: 0; }
+  55% { transform: scale(0.94) rotate(-1deg); opacity: 1; }
+  75% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stamp-press { animation: stamp-press 650ms cubic-bezier(.2, .8, .3, 1) 150ms both; }
+}
+
+/* ===== はじめに(components/welcome) ===== */
+@keyframes onboarding-in {
+  from { transform: translateY(16px) scale(.97); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+/* ログイン直後のダイブ: グラスが出る → ズーム → お酒の色で満たされる → 消える */
+@keyframes welcome-dive-glass {
+  0% { transform: scale(.4); opacity: 0; }
+  25% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(1); }
+  75% { transform: scale(14); opacity: 1; }
+  100% { transform: scale(14); opacity: 0; }
+}
+@keyframes welcome-dive-fill {
+  0%, 50% { clip-path: circle(0% at 50% 52%); }
+  78%, 100% { clip-path: circle(75% at 50% 52%); }
+}
+@keyframes welcome-dive-out {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .onboarding-in { animation: onboarding-in 280ms ease-out both; }
+  .welcome-dive { animation: welcome-dive-out 1400ms ease-in both; }
+  .welcome-dive__glass { animation: welcome-dive-glass 1400ms cubic-bezier(.5, 0, .3, 1) both; }
+  .welcome-dive__fill { animation: welcome-dive-fill 1400ms ease-in both; }
+}

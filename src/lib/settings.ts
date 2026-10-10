@@ -27,6 +27,25 @@ export async function saveKindSettings(supabase: SupabaseClient, settings: KindS
   return error;
 }
 
+// 初回の使い方紹介を見たか。行がまだ無ければ未(新しく使い始めた人)。
+// 読めないとき(20261012 のマイグレーション前など)は、毎回出てしまわないよう「見た」とみなす
+export async function loadOnboarded(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase.from("user_settings").select("onboarded_at").maybeSingle();
+  if (error) return true;
+  return data?.onboarded_at != null;
+}
+
+// 使い方紹介を終えたとき: 選んだ種類を保存し、見たことを記録する
+export async function finishOnboarding(supabase: SupabaseClient, settings: KindSettings) {
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert(
+      { kind_order: settings.order, visible_kinds: settings.visible, onboarded_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+  return error;
+}
+
 // 並び替え: from 番目を to 番目へ動かす
 export function moveItem<T>(list: T[], from: number, to: number): T[] {
   const next = [...list];

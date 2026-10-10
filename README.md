@@ -1,4 +1,4 @@
-# のみくらべ帳(beer_register)
+# のみくらべノート(beer_register)
 
 ビール・日本酒・ウイスキー・シードル・ワインの飲み比べを記録する、自分用のスマホ向けWebアプリです。
 仕様は [docs/SPEC.md](docs/SPEC.md) にあります。
@@ -38,6 +38,8 @@
 3. `supabase/migrations/20261011000000_taste_sliders.sql`(味の評価を −2.5〜+2.5 のスライダーにした版)
    - 甘辛・香り・ボディ・苦み・スモーキーを、真ん中が0の値に変換します(1〜5 → −2.5 / −1 / 0 / +1 / +2.5)。
    - 「Success. No rows returned」と出れば成功。**2 を実行してから**実行してください。
+4. `supabase/migrations/20261012000000_onboarding.sql`(初回の使い方紹介を見たかを覚える)
+   - 「Success. No rows returned」と出れば成功。実行したあと最初に開いたとき、使い方紹介が1回出ます。
 
 ---
 
