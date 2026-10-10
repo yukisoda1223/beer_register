@@ -5,7 +5,7 @@ import { StarDisplay } from "@/components/StarDisplay";
 import { formatDateLong, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { loadDrinkOr404 } from "@/lib/drinks-server";
 import { KIND_CONFIG } from "@/lib/kind-config";
-import { PEAT_LEVELS, servedLabel } from "@/lib/masters";
+import { PEAT_LEVELS, categoryText, servedLabel } from "@/lib/masters";
 
 // 記録の詳細(見るだけ)。下の Edit / Delete から変更できる
 export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id]">) {
@@ -26,7 +26,7 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
         <div className="min-w-0">
           <h1 className="text-[20px] leading-snug font-medium tracking-tight">{drink.name}</h1>
           <p className="mt-0.5 text-[13px] text-(--color-text-sub)">
-            {[drink.category, origin].filter(Boolean).join(" · ")}
+            {[categoryText(kind, drink.category), origin].filter(Boolean).join(" · ")}
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default async function DrinkDetailPage({ params }: PageProps<"/[kind]/[id
         {config.stars.map((st) => (
           <StarRow key={st.field} label={st.label} value={drink[st.field]} />
         ))}
-        <StarRow label="Aroma" value={drink.aroma} />
+        <StarRow label="香り" value={drink.aroma} />
         {config.scales.map((sc) => (
           <ScaleRow key={sc.field} label={sc.label} left={sc.left} right={sc.right} value={drink[sc.field]} />
         ))}

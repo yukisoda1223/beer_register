@@ -7,6 +7,7 @@ import { formatDateShort, iconOf, originLabel, type Drink } from "@/lib/drink";
 import { PAGE_SIZE, errorMessage, fetchDrinkPage, signedImageUrls, type ListQuery } from "@/lib/drinks-db";
 import { KIND_CONFIG } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
+import { categoryText } from "@/lib/masters";
 import { createClient } from "@/lib/supabase/client";
 
 const MIN_RATINGS = [3, 3.5, 4, 4.5];
@@ -93,7 +94,7 @@ export function DrinkTable({ kind, status, region }: { kind: Kind; status: "draf
         type="search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={`Search name or ${KIND_CONFIG[kind].makerLabel.toLowerCase()}`}
+        placeholder={kind === "sake" ? "銘柄名・酒蔵で検索" : `Search name or ${KIND_CONFIG[kind].makerLabel.toLowerCase()}`}
         aria-label="Search"
         className="min-h-10 w-full rounded-full border border-(--color-border) bg-(--color-surface) px-4 text-[14px]"
       />
@@ -117,10 +118,10 @@ export function DrinkTable({ kind, status, region }: { kind: Kind; status: "draf
           onChange={(e) => setCategory(e.target.value)}
           className="min-h-10 rounded-full border border-(--color-border) bg-(--color-surface) px-3"
         >
-          <option value="">All {KIND_CONFIG[kind].categoryLabel.toLowerCase()}s</option>
+          <option value="">{KIND_CONFIG[kind].categoryAll}</option>
           {categories.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {categoryText(kind, c)}
             </option>
           ))}
         </select>

@@ -12,13 +12,13 @@ export function TasteMap({ kind, records }: { kind: Kind; records: StatRecord[] 
   if (!axes) return null;
   const { x, y } = axes;
   const points = tastePoints(records, x, y);
-  const title = y ? "Taste Map" : x.label;
+  const title = y ? "テイストマップ" : `${x.label}の分布`;
 
   if (points.length === 0) {
     return (
       <Card title={title}>
         <p className="text-[13px] text-(--color-text-sub)">
-          Rate {y ? `${x.label} and ${y.label}` : x.label} when you log a drink to see where your favorites sit.
+          記録するときに{y ? `「${x.label}」と「${y.label}」` : `「${x.label}」`}を入れると、好みの位置がここに表示されます。
         </p>
       </Card>
     );
@@ -53,7 +53,7 @@ function Map2D({ kind, points, x, y }: { kind: Kind; points: TastePoint[]; x: Ax
 
   return (
     <div>
-      <svg viewBox={`-6 -6 ${SIZE + 12} ${SIZE + 12}`} className="w-full" role="img" aria-label={`${x.label} by ${y.label}, ${points.length} drinks`}>
+      <svg viewBox={`-6 -6 ${SIZE + 12} ${SIZE + 12}`} className="w-full" role="img" aria-label={`${x.label} × ${y.label}、${points.length}銘柄`}>
         <defs>
           <clipPath id="taste-map-clip">
             <rect x={0} y={0} width={SIZE} height={SIZE} rx={10} />
@@ -76,10 +76,10 @@ function Map2D({ kind, points, x, y }: { kind: Kind; points: TastePoint[]; x: Ax
           </g>
         </g>
         <path d={`M${SIZE / 2} 0V${SIZE}M0 ${SIZE / 2}H${SIZE}`} className="stroke-(--color-border)" strokeDasharray="3 4" />
-        <text x={SIZE / 2} y={16} textAnchor="middle" className={edge}>{y.high.en}</text>
-        <text x={SIZE / 2} y={SIZE - 8} textAnchor="middle" className={edge}>{y.low.en}</text>
-        <text x={8} y={SIZE / 2 - 6} className={edge}>{x.low.en}</text>
-        <text x={SIZE - 8} y={SIZE / 2 - 6} textAnchor="end" className={edge}>{x.high.en}</text>
+        <text x={SIZE / 2} y={16} textAnchor="middle" className={edge}>{y.high.word}</text>
+        <text x={SIZE / 2} y={SIZE - 8} textAnchor="middle" className={edge}>{y.low.word}</text>
+        <text x={8} y={SIZE / 2 - 6} className={edge}>{x.low.word}</text>
+        <text x={SIZE - 8} y={SIZE / 2 - 6} textAnchor="end" className={edge}>{x.high.word}</text>
         {points.map((p) => (
           <a key={p.productId} href={`/${kind}/${p.tastingId}`}>
             <title>{`${p.name} ★${Math.round(p.rating * 10) / 10}`}</title>
@@ -94,7 +94,7 @@ function Map2D({ kind, points, x, y }: { kind: Kind; points: TastePoint[]; x: Ax
           </a>
         ))}
       </svg>
-      <p className="mt-2 text-[11px] text-(--color-text-sub)">Darker = closer to your top-rated drinks · Bigger dot = higher rating</p>
+      <p className="mt-2 text-[11px] text-(--color-text-sub)">色が濃い = 評価の高い銘柄の近く ・ 点が大きい = 評価が高い</p>
     </div>
   );
 }
@@ -119,10 +119,10 @@ function Distribution({ points, x }: { points: TastePoint[]; x: Axis }) {
         ))}
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] text-(--color-text-sub)">
-        <span>{x.low.en}</span>
-        <span>{x.high.en}</span>
+        <span>{x.low.word}</span>
+        <span>{x.high.word}</span>
       </div>
-      <p className="mt-2 text-[11px] text-(--color-text-sub)">Bar height = drinks · Darker = higher average rating</p>
+      <p className="mt-2 text-[11px] text-(--color-text-sub)">棒の高さ = 銘柄の数 ・ 色が濃い = 平均評価が高い</p>
     </div>
   );
 }

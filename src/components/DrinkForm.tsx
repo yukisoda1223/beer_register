@@ -29,7 +29,7 @@ import { geocodeOnClient, locationKey } from "@/lib/geo/client";
 import { extensionOf } from "@/lib/image";
 import type { Kind } from "@/lib/kinds";
 import { KIND_CONFIG } from "@/lib/kind-config";
-import { BEER_FAMILY_LABELS, COUNTRY_SUGGESTIONS, PREFECTURES, SERVED_OPTIONS, beerFamilyOf } from "@/lib/masters";
+import { BEER_FAMILY_LABELS, COUNTRY_SUGGESTIONS, PREFECTURES, SERVED_OPTIONS, beerFamilyOf, categoryText } from "@/lib/masters";
 import { normalizeName } from "@/lib/normalize";
 import { deleteTasting, findKnownProduct, saveDrink } from "@/lib/save-drink";
 import { createClient } from "@/lib/supabase/client";
@@ -392,8 +392,8 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
               <StarRating label={st.label} value={values[st.field]} onChange={(v) => set(st.field, v)} size={26} />
             </Field>
           ))}
-          <Field label="Aroma" field="aroma">
-            <StarRating label="Aroma" value={values.aroma} onChange={(v) => set("aroma", v)} size={26} />
+          <Field label="香り" field="aroma">
+            <StarRating label="香り" value={values.aroma} onChange={(v) => set("aroma", v)} size={26} />
           </Field>
           {config.scales.map((sc) => (
             <Field key={sc.field} label={sc.label} field={sc.field}>
@@ -423,7 +423,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
               <option value="">Choose…</option>
               {config.categories.map((c) => (
                 <option key={c} value={c}>
-                  {c}
+                  {categoryText(kind, c)}
                 </option>
               ))}
             </select>
@@ -634,7 +634,7 @@ export function DrinkForm({ kind, drink, imageUrl }: { kind: Kind; drink?: Drink
           onClose={() => setChoices(null)}
           actions={[
             ...(choices?.candidates ?? []).map((c, i) => ({
-              label: `${i + 1}. ${c.name}${c.category ? ` · ${c.category}` : ""}`,
+              label: `${i + 1}. ${c.name}${c.category ? ` · ${categoryText(kind, c.category)}` : ""}`,
               onClick: () => handlePickCandidate(c),
             })),
             { label: "Cancel", onClick: () => setChoices(null) },

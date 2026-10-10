@@ -7,6 +7,7 @@ import {
   monthCalendar,
   monthsBefore,
   summaryInput,
+  bulkImportedIds,
   type StatRecord,
 } from "./stats";
 
@@ -126,5 +127,28 @@ describe("summaryInput", () => {
     const rs = [rec({ kind: "whisky", body: 4, smoky: 5 }), rec({ kind: "whisky", body: 2, smoky: 3 })];
     const s = summaryInput("whisky", rs, "2026-10-09") as Record<string, unknown>;
     expect(s).toMatchObject({ avg_body: 3, avg_smoky: 4 });
+  });
+});
+
+describe("まとめて登録した記録", () => {
+  it("作成時刻が同じ記録が3件以上なら、まとめて登録したものとみなす", () => {
+    const at = "2026-10-09T12:00:00.123456+00:00";
+    const rs = [rec({ created_at: at }), rec({ created_at: at }), rec({ created_at: at }), rec({}), rec({})];
+    expect(bulkImportedIds(rs).size).toBe(3);
+  });
+  it("月ごとの傾向から除き、日本酒の特定名称は日本語で渡す", () => {
+    const at = "2026-10-09T12:00:00Z";
+    const rs = [
+      ...[1, 2, 3].map(() => rec({ kind: "sake", category: "Junmai", created_at: at, drunk_on: "2026-10-09" })),
+      rec({ kind: "sake", category: "Tokubetsu Junmai", drunk_on: "2026-10-05" }),
+    ];
+    const out = summaryInput("sake", rs, "2026-10-09") as {
+      categories: { category: string }[];
+      last_12_months: { month: string; tastings: number; top_category: string | null }[];
+      bulk_imported_tastings: number;
+    };
+    expect(out.categories.map((c) => c.category)).toEqual(["純米", "特別純米"]);
+    expect(out.last_12_months.at(-1)).toEqual({ month: "2026-10", tastings: 1, top_category: "特別純米" });
+    expect(out.bulk_imported_tastings).toBe(3);
   });
 });

@@ -10,6 +10,7 @@ import { TasteMap } from "@/components/report/TasteMap";
 import { YourSummary } from "@/components/report/YourSummary";
 import { iconOf, originLabel } from "@/lib/drink";
 import { IMAGE_BUCKET } from "@/lib/drinks-db";
+import { categoryText } from "@/lib/masters";
 import { KIND_CONFIG } from "@/lib/kind-config";
 import type { Kind } from "@/lib/kinds";
 import { categoryBreakdown, countDrinks, favoritesTop5, type StatRecord } from "@/lib/stats";
@@ -32,7 +33,6 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
   const records = (data ?? []) as StatRecord[];
 
   const today = todayJST();
-  const [year, month, day] = today.split("-").map(Number);
   const { unique, total } = countDrinks(records);
   const favorites = favoritesTop5(records, today);
   const styles = categoryBreakdown(records);
@@ -57,7 +57,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         </div>
       </section>
 
-      <MonthCalendar records={records} year={year} month={month} today={day} />
+      <MonthCalendar dates={records.map((r) => r.drunk_on)} today={today} />
 
       <Card title="Your Favorites Top 5">
         {favorites.length === 0 ? (
@@ -72,7 +72,7 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 text-[14px] leading-snug">{d.name}</p>
                     <p className="truncate text-[11px] text-(--color-text-sub)">
-                      {[d.category, originLabel(d)].filter(Boolean).join(" · ")}
+                      {[categoryText(kind, d.category), originLabel(d)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   <StarDisplay value={d.rating ?? 0} size={12} />
@@ -91,11 +91,11 @@ export default async function ReportPage({ params }: PageProps<"/[kind]/report">
         <MiniMap kind={kind} />
       </Card>
 
-      <Card title={`${KIND_CONFIG[kind].categoryLabel}s`}>
+      <Card title={KIND_CONFIG[kind].categoryPlural}>
         {styles.total === 0 ? (
           <p className="text-[13px] text-(--color-text-sub)">Nothing logged yet.</p>
         ) : (
-          <CategoryDonut categories={styles.items} total={styles.total} />
+          <CategoryDonut categories={styles.items.map((c) => ({ ...c, label: categoryText(kind, c.label) ?? c.label }))} total={styles.total} />
         )}
       </Card>
 

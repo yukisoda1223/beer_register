@@ -66,6 +66,26 @@ export const SAKE_CATEGORIES = [
   "Other",
 ];
 
+// 日本酒の特定名称の表示(データは英語のまま持ち、画面・AI の要約では日本語で出す)
+export const SAKE_CATEGORY_JA: Record<string, string> = {
+  "Junmai Daiginjo": "純米大吟醸",
+  "Junmai Ginjo": "純米吟醸",
+  "Tokubetsu Junmai": "特別純米",
+  Junmai: "純米",
+  Daiginjo: "大吟醸",
+  Ginjo: "吟醸",
+  "Tokubetsu Honjozo": "特別本醸造",
+  Honjozo: "本醸造",
+  Futsushu: "普通酒",
+  Other: "その他",
+};
+
+// スタイル・特定名称の表示名。日本酒だけ日本語、ほかは英語のまま(Stout など)
+export function categoryText(kind: Kind, category: string | null | undefined): string | null {
+  if (!category) return null;
+  return kind === "sake" ? (SAKE_CATEGORY_JA[category] ?? category) : category;
+}
+
 // 6.3 飲み方。日本酒は温度(表示は日本語)、ウイスキーは飲み方
 export const SERVED_OPTIONS: Partial<Record<Kind, { value: Served; label: string }[]>> = {
   sake: [

@@ -5,41 +5,41 @@ import type { StatRecord } from "@/lib/stats";
 
 type AxisField = "sweet_dry" | "aroma_level" | "body" | "smoky";
 
-// 軸の端の言葉。low/high は画面の英語、ja は好みの一文に使う日本語(te = 「〜で」、attr = 名詞の前)
-type Pole = { en: string; te: string; attr: string };
+// 軸の端の言葉。word は画面に出す言葉、te・attr は好みの一文に使う形(te = 「〜で」、attr = 名詞の前)
+type Pole = { word: string; te: string; attr: string };
 export type Axis = { field: AxisField; label: string; min: number; max: number; low: Pole; high: Pole };
 
 const SWEET_DRY: Axis = {
   field: "sweet_dry",
-  label: "Sweet — Dry",
+  label: "甘辛",
   min: 1,
   max: 5,
-  low: { en: "Sweet", te: "甘口で", attr: "甘口の" },
-  high: { en: "Dry", te: "辛口で", attr: "辛口の" },
+  low: { word: "甘口", te: "甘口で", attr: "甘口の" },
+  high: { word: "辛口", te: "辛口で", attr: "辛口の" },
 };
 const AROMA: Axis = {
   field: "aroma_level",
-  label: "Aroma intensity",
+  label: "香りの強さ",
   min: 1,
   max: 5,
-  low: { en: "Subtle", te: "香りが控えめで", attr: "香りが控えめな" },
-  high: { en: "Fragrant", te: "香りが華やかで", attr: "香りが華やかな" },
+  low: { word: "控えめ", te: "香りが控えめで", attr: "香りが控えめな" },
+  high: { word: "華やか", te: "香りが華やかで", attr: "香りが華やかな" },
 };
 const BODY: Axis = {
   field: "body",
-  label: "Body",
+  label: "ボディ",
   min: 1,
   max: 5,
-  low: { en: "Light", te: "ライトボディで", attr: "ライトボディの" },
-  high: { en: "Full", te: "フルボディで", attr: "フルボディの" },
+  low: { word: "ライト", te: "ライトボディで", attr: "ライトボディの" },
+  high: { word: "フル", te: "フルボディで", attr: "フルボディの" },
 };
 const SMOKY: Axis = {
   field: "smoky",
-  label: "Smoky",
+  label: "スモーキー",
   min: 0.5,
   max: 5,
-  low: { en: "Gentle", te: "スモーキーさが控えめで", attr: "スモーキーさが控えめな" },
-  high: { en: "Smoky", te: "スモーキーで", attr: "スモーキーな" },
+  low: { word: "穏やか", te: "スモーキーさが控えめで", attr: "スモーキーさが控えめな" },
+  high: { word: "スモーキー", te: "スモーキーで", attr: "スモーキーな" },
 };
 
 // 種類ごとの軸。横 x・縦 y の2つあるものはマップ、x だけのもの(シードル)は分布

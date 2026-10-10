@@ -89,3 +89,18 @@ body {
 .leaflet-container {
   font-family: var(--font-sans);
 }
+
+/* ===== 今月のカレンダー(components/report/MonthCalendar.tsx) =====
+   前後の月に切り替えたとき、横からすべり込む。動きを減らす設定の端末では動かさない */
+@keyframes calendar-from-right {
+  from { transform: translateX(35%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes calendar-from-left {
+  from { transform: translateX(-35%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .calendar-in-next { animation: calendar-from-right 220ms ease-out; }
+  .calendar-in-prev { animation: calendar-from-left 220ms ease-out; }
+}

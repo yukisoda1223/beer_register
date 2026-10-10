@@ -1,6 +1,7 @@
 // レポートの集計(仕様書 §7.1)。対象は保存済み(status = saved)の記録だけ
 import type { Drink } from "@/lib/drink";
 import type { Kind } from "@/lib/kinds";
+import { categoryText } from "@/lib/masters";
 
 export type StatRecord = Pick<
   Drink,
@@ -58,7 +59,7 @@ export function categoryBreakdown(records: StatRecord[], top = 5) {
 }
 
 // 月のカレンダー(日曜はじまり)。days[i] は i+1 日に飲んだ回数、offset は1日の前の空きマスの数
-export function monthCalendar(records: StatRecord[], year: number, month: number) {
+export function monthCalendar(records: Pick<StatRecord, "status" | "drunk_on">[], year: number, month: number) {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const offset = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
   const prefix = `${year}-${String(month).padStart(2, "0")}-`;
@@ -74,6 +75,14 @@ export function heatLevel(count: number): 0 | 1 | 2 | 3 {
   return count <= 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : 3;
 }
 
+// まとめて登録した記録(SQL で一度に入れたもの)。アプリでは1件ずつ保存するので、
+// 作成時刻がまったく同じ記録が3件以上あれば、まとめて登録したものとみなす
+export function bulkImportedIds(records: Pick<StatRecord, "id" | "created_at">[], minGroup = 3): Set<string> {
+  const groups = new Map<string, string[]>();
+  for (const r of records) groups.set(r.created_at, [...(groups.get(r.created_at) ?? []), r.id]);
+  return new Set([...groups.values()].filter((ids) => ids.length >= minGroup).flat());
+}
+
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const avg = (xs: number[]) => (xs.length ? round1(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 
@@ -81,6 +90,11 @@ const avg = (xs: number[]) => (xs.length ? round1(xs.reduce((a, b) => a + b, 0) 
 export function summaryInput(kind: Kind, records: StatRecord[], today: string) {
   const s = saved(records);
   const { unique, total } = countDrinks(records);
+  // 名前は日本酒だけ日本語(純米 など)、ほかは英語のまま
+  const label = (c: string | null) => categoryText(kind, c ?? "Other") ?? "Other";
+  // 最近の傾向(月ごと)は、まとめて登録した記録を除いて数える
+  const bulk = bulkImportedIds(s);
+  const logged = s.filter((r) => !bulk.has(r.id));
 
   const byCategory = new Map<string, number[]>();
   for (const r of s) {
@@ -89,16 +103,17 @@ export function summaryInput(kind: Kind, records: StatRecord[], today: string) {
     byCategory.set(r.category ?? "Other", list);
   }
   const categories = [...byCategory.entries()]
-    .map(([category, ratings]) => ({ category, tastings: s.filter((r) => (r.category ?? "Other") === category).length, avg_rating: avg(ratings) }))
+    .map(([category, ratings]) => ({ category: label(category), tastings: s.filter((r) => (r.category ?? "Other") === category).length, avg_rating: avg(ratings) }))
     .sort((a, b) => b.tastings - a.tastings);
 
   const months: { month: string; tastings: number; top_category: string | null }[] = [];
   for (let i = 11; i >= 0; i--) {
     const ym = monthsBefore(today, i).slice(0, 7);
-    const inMonth = s.filter((r) => r.drunk_on.startsWith(ym));
+    const inMonth = logged.filter((r) => r.drunk_on.startsWith(ym));
     const counts = new Map<string, number>();
     inMonth.forEach((r) => counts.set(r.category ?? "Other", (counts.get(r.category ?? "Other") ?? 0) + 1));
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const topKey = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const top = topKey == null ? null : label(topKey);
     months.push({ month: ym, tastings: inMonth.length, top_category: top });
   }
 
@@ -107,8 +122,10 @@ export function summaryInput(kind: Kind, records: StatRecord[], today: string) {
     unique_drinks: unique,
     total_tastings: total,
     categories,
+    // 1件ずつ記録したものだけの月ごとの数(まとめて登録した記録は含まない)
     last_12_months: months,
-    favorites: favoritesTop5(records, today).map((r) => ({ name: r.name, category: r.category, rating: r.rating })),
+    bulk_imported_tastings: bulk.size,
+    favorites: favoritesTop5(records, today).map((r) => ({ name: r.name, category: r.category == null ? null : label(r.category), rating: r.rating })),
     countries: [...new Set(s.map((r) => r.country).filter(Boolean))],
   };
   const avgOf = (f: "sweet_dry" | "aroma_level" | "body" | "smoky") => avg(s.flatMap((r) => (r[f] != null ? [r[f] as number] : [])));
