@@ -16,7 +16,7 @@
 | 7 | レポート(ビール) | ✅ 完了(Your Summary・カレンダー・Top5・Styles) |
 | 8 | お酒の種類を追加(Whisky / Cider / Wine・表示する種類の設定) | ✅ 完了 |
 | 8.5 | 種類ごとのレポート(Taste Map・都道府県マップ・シードルの甘辛・ウイスキーの樽) | ✅ 完了 |
-| 9 | 仕上げ(PWA・公開) | これから |
+| 9 | 仕上げ(PWA・公開) | ✅ 準備済み(下の「7. スマホで使う」で公開) |
 
 画面は英語です。あとで行う改善は [docs/BACKLOG.md](docs/BACKLOG.md) にまとめています。
 
@@ -213,7 +213,7 @@ ALLOWED_EMAIL=(ログインに使う自分のGmail)
 3. Supabase の「URL Configuration」→ Redirect URLs に `http://192.168.1.23:3000/**`(自分の IP)を追加。
 4. スマホのブラウザで `http://192.168.1.23:3000` を開いてログイン。
 
-> うまくいかなくても大丈夫です。マイルストーン9でインターネットに公開すると、スマホからは普通に使えるようになります。
+> うまくいかなくても大丈夫です。下の「7. スマホで使う」でインターネットに公開すると、スマホからは普通に使えるようになります。
 
 ---
 
@@ -279,3 +279,41 @@ src/
 supabase/migrations/         # データベースを作る SQL
 docs/SPEC.md                 # 仕様書
 ```
+
+---
+
+## 7. スマホで使う(Vercel で公開する)
+
+インターネットに公開して、どこからでもスマホで開けるようにします。ログインできるのは `ALLOWED_EMAIL` の自分の Gmail だけです。
+
+### 7-1. Vercel にアプリを置く(最初の1回だけ)
+1. https://vercel.com/new を開き、GitHub でログインします(「2-2. Vercel」の準備がまだなら先にそちら)。
+2. 「Import Git Repository」の一覧から **beer_register** の「Import」を押します。
+   - 一覧に出ないときは「Adjust GitHub App Permissions」から beer_register を読めるように許可します。
+3. 設定画面で「Environment Variables」を開き、**`.env.local` に書いた値を同じ名前で**入れます。
+   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `ALLOWED_EMAIL` / `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` / `AI_DAILY_LIMIT` / `NOMINATIM_USER_AGENT`
+   - `.env.local` の中身をまとめてコピーし、Key の欄に貼り付けると一度に入ります(`SUPABASE_SECRET_KEY` は使っていないので空でOK)。
+   - キーの値はこの画面にだけ入れます。チャットや GitHub には貼らないでください。
+4. 「Deploy」を押します。1〜2分で終わり、`https://beer-register-xxxx.vercel.app` のような URL ができます(画面の「Domains」に出ます)。
+
+### 7-2. Supabase に公開先の URL を教える(最初の1回だけ)
+1. Supabase の「Authentication」→「URL Configuration」を開きます。
+2. **Site URL** を Vercel の URL(例: `https://beer-register-xxxx.vercel.app`)に変えます。
+3. **Redirect URLs** に `https://beer-register-xxxx.vercel.app/**` を追加します(`http://localhost:3000/**` は残したままでOK)。
+4. 「Save」。Google Cloud 側の設定は変えなくて大丈夫です。
+
+### 7-3. スマホで開いて、ホーム画面に置く
+1. スマホのブラウザで Vercel の URL を開き、Google でログインします。
+2. ホーム画面に追加します。ジョッキのスタンプのアイコンで、ブラウザの枠なしで開けるようになります。
+   - iPhone(Safari): 下の共有ボタン → 「ホーム画面に追加」
+   - Android(Chrome): 右上の「︙」→「ホーム画面に追加」または「アプリをインストール」
+
+### 更新について
+- 新しいコードが GitHub に入る(push される)と、Vercel が自動で作り直して公開します。パソコンでの `git pull` とは別に、スマホ側は何もしなくてOKです。
+- データベースの変更(SQL)があるときは、今までどおり Supabase の SQL Editor で実行してください。
+- Vercel の環境変数を変えたときは、「Deployments」→ 一番上の「︙」→「Redeploy」で反映します。
+- 公開されるのは GitHub の既定のブランチです。Vercel の「Deployments」で Production にならず Preview になる場合は、「Settings」→「Environments」→「Production」の Branch を `claude/beer-tasting-app-h3fzof` にします。
+
+### もっと速くしたいとき(任意)
+Supabase の「Settings」→「General」で Region(例: Northeast Asia (Tokyo))を確認し、Vercel の「Settings」→「Functions」→「Function Region」を同じ地域(Tokyo なら `hnd1`)にすると、画面の表示が速くなります。
+

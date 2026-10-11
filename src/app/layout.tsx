@@ -12,6 +12,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "のみくらべノート",
   description: "飲んだお酒を記録して、のみくらべるノート。",
+  // iPhone でホーム画面に追加したとき、ブラウザの枠なしで開く
+  appleWebApp: { capable: true, title: "のみくらべ", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
